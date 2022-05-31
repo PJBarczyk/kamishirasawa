@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "kamishirasawa"
+version = "0.1.0"
+description = ""
+authors = ["PJBarczyk <260393@student.pwr.edu.pl>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+dearpygui = "^1.6.2"
+romkan = {git = "https://github.com/Bel-Shazzar/python-romkan.git"}
+langdetect = "^1.0.9"
+playsound = "^1.3.0"
+gTTS = "^2.2.4"
+pykakasi = "^2.2.1"
+PyQt6 = "^6.3.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
