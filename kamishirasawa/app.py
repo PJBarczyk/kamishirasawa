@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (QApplication, QButtonGroup, QGridLayout,
                              QRadioButton, QVBoxLayout, QWidget)
 
 import lang_utils
+from games import FlashcardGame, JaToEnGame, Voc
 from tts import tts
 
 app = QApplication(sys.argv)
@@ -60,10 +61,10 @@ class KanjiKanaLabel(QWidget):
                 self.layout().addWidget(QLabel(text=text))
                 
             case self.Mode.FURIGANA:
-                if not utils.contains_kanji(text):
-                    self.layout().addWidget(QLabel(text=utils.to_romaji(text)))
+                if not lang_utils.contains_kanji(text):
+                    self.layout().addWidget(QLabel(text=lang_utils.to_romaji(text)))
                 else:
-                    for column, (og, hira) in enumerate(utils.furigana(text)):
+                    for column, (og, hira) in enumerate(lang_utils.furigana(text)):
                         if hira:
                             label = QLabel(text=hira)
                             label.setStyleSheet(f"QLabel{{font-size: {self.furigana_font_size}px;}}")
@@ -72,7 +73,7 @@ class KanjiKanaLabel(QWidget):
                         self.layout().addWidget(QLabel(text=og), 1, column, alignment=Qt.AlignmentFlag.AlignCenter)                            
             
             case self.Mode.ROMAJI:
-                self.layout().addWidget(QLabel(text=utils.to_romaji(text)))
+                self.layout().addWidget(QLabel(text=lang_utils.to_romaji(text)))
                 
     def setMode(self, mode: Mode) -> None:
         self.mode = mode
@@ -109,7 +110,7 @@ class MemoryTestWidget(QWidget):
         READING_ANSWER = auto()
         GIVING_FEEDBACK = auto()
     
-    def __init__(self, memory_test: MemoryTest, *args, **kwargs) -> None:
+    def __init__(self, memory_test: FlashcardGame, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         
         self.memory_test = memory_test
@@ -189,7 +190,7 @@ window.setWindowTitle("Kamishirasawa")
 window.setGeometry(700, 400, 300, 200)
 
 vocs = [voc for voc in Voc.get_from_json("kanji_by_grade.json") if voc.grade == 1]
-test = JaToEnMemoryTest(vocs, 3, 6)
+test = JaToEnGame(vocs, 3, 6)
 
 layout = QHBoxLayout(window)
 layout.addWidget(MemoryTestWidget(memory_test=test))
