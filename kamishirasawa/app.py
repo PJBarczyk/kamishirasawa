@@ -1,15 +1,14 @@
-from glob import glob
 import logging
 import sys
+import typing
 from enum import Enum, auto
+from glob import glob
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QAction, QFont, QFontDatabase
-from PyQt6.QtWidgets import (QApplication, QButtonGroup, QCheckBox,
-                             QFormLayout, QGridLayout, QHBoxLayout, QLabel,
-                             QLineEdit, QListWidget, QListWidgetItem, QMenu,
-                             QPushButton, QRadioButton, QToolBar, QVBoxLayout,
-                             QWidget)
+from PyQt6.QtCore import QRunnable, Qt, QThreadPool
+from PyQt6.QtGui import QAction, QFontDatabase, QIcon
+from PyQt6.QtWidgets import (QApplication, QButtonGroup, QGridLayout,
+                             QHBoxLayout, QLabel, QLineEdit, QPushButton,
+                             QRadioButton, QVBoxLayout, QWidget)
 
 from games import JaToEnMemoryTest, MemoryTest, Voc
 from tts import tts
