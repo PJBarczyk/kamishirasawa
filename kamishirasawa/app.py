@@ -77,8 +77,33 @@ class KanjiKanaLabel(QWidget):
                 
     def setMode(self, mode: Mode) -> None:
         self.mode = mode
-        self.setText(self.text)
+        self.setText(self.__text)
+        
+class TTSButton(QPushButton):    
+    class TTSRunnable(QRunnable):
+        def __init__(self, text: str, lang: str, widget: QWidget) -> None:
+            super().__init__()
+            self.text = text
+            self.lang = lang
+            self.widget = widget
+            
+        def run(self) -> None:
+            tts(self.text, self.lang)
+            self.widget.setDisabled(False)
     
+    icon: QIcon = QIcon("icons/speaker.png")
+    
+    def __init__(self, text_supplier: typing.Callable[[], str], **kwargs):
+        super().__init__(**kwargs)
+        self.text_supplier = text_supplier
+        self.setIcon(self.icon)
+        self.setFixedSize(32, 32)
+        self.clicked.connect(self.__on_clicked)
+        
+    def __on_clicked(self) -> None:
+        self.setDisabled(True)
+        QThreadPool.globalInstance().start(self.TTSRunnable(text=self.text_supplier(), lang="ja", widget=self))
+        
 
 class MemoryTestWidget(QWidget):
     class State(Enum):
@@ -105,6 +130,12 @@ class MemoryTestWidget(QWidget):
         
         self.question_label = KanjiKanaLabel()
         self.question_label.setText(memory_test.question)
+        self.tts_button = TTSButton(self.question_label.text)
+        question_widget = QWidget()
+        question_widget_layout = QHBoxLayout(question_widget)
+        question_widget_layout.addWidget(self.question_label)   
+        question_widget_layout.addWidget(self.tts_button)        
+        
         self.answer_input = QLineEdit()
         self.feedback_label = QLabel()
         
@@ -120,7 +151,7 @@ class MemoryTestWidget(QWidget):
         layout.addWidget(r1, alignment=Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(r2, alignment=Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(r3, alignment=Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(self.question_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(question_widget, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.answer_input, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.feedback_label, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.confirm_button, alignment=Qt.AlignmentFlag.AlignCenter)
