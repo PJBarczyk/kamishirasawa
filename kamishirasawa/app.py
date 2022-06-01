@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (QApplication, QButtonGroup, QGridLayout,
                              QHBoxLayout, QLabel, QLineEdit, QPushButton,
                              QRadioButton, QVBoxLayout, QWidget)
 
-from games import JaToEnMemoryTest, MemoryTest, Voc
+import utils
 from tts import tts
 import kanakanji
 
@@ -37,8 +37,7 @@ class KanjiKanaLabel(QWidget):
             
     def __init__(self, parent: QWidget = None, mode: Mode = Mode.ORIGINAL) -> None:
         super().__init__(parent)
-        
-        self.text = ""
+        self.__text = ""
         self.mode = mode
         
         layout = QGridLayout(self)
@@ -48,8 +47,11 @@ class KanjiKanaLabel(QWidget):
                            QLabel{{font-size: {self.base_font_size}pt; font-family: {self.font_family}}}
                            """)  
         
+    def text(self) -> str:
+        return self.__text
+        
     def setText(self, text: str) -> None:
-        self.text = text
+        self.__text = text
         
         for i in reversed(range(self.layout().count())):
             self.layout().itemAt(i).widget().setParent(None)
@@ -59,10 +61,10 @@ class KanjiKanaLabel(QWidget):
                 self.layout().addWidget(QLabel(text=text))
                 
             case self.Mode.FURIGANA:
-                if not kanakanji.contains_kanji(text):
-                    self.layout().addWidget(QLabel(text=kanakanji.to_romaji(text)))
+                if not utils.contains_kanji(text):
+                    self.layout().addWidget(QLabel(text=utils.to_romaji(text)))
                 else:
-                    for column, (og, hira) in enumerate(kanakanji.furigana(text)):
+                    for column, (og, hira) in enumerate(utils.furigana(text)):
                         if hira:
                             label = QLabel(text=hira)
                             label.setStyleSheet(f"QLabel{{font-size: {self.furigana_font_size}px;}}")
@@ -71,7 +73,7 @@ class KanjiKanaLabel(QWidget):
                         self.layout().addWidget(QLabel(text=og), 1, column, alignment=Qt.AlignmentFlag.AlignCenter)                            
             
             case self.Mode.ROMAJI:
-                self.layout().addWidget(QLabel(text=kanakanji.to_romaji(text)))
+                self.layout().addWidget(QLabel(text=utils.to_romaji(text)))
                 
     def setMode(self, mode: Mode) -> None:
         self.mode = mode
