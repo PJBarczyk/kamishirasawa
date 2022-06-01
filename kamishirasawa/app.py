@@ -10,9 +10,8 @@ from PyQt6.QtWidgets import (QApplication, QButtonGroup, QGridLayout,
                              QHBoxLayout, QLabel, QLineEdit, QPushButton,
                              QRadioButton, QVBoxLayout, QWidget)
 
-import utils
+import lang_utils
 from tts import tts
-import kanakanji
 
 app = QApplication(sys.argv)
 logging.basicConfig(
