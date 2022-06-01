@@ -1,0 +1,1006 @@
+1	一	one
+1	二	two
+1	三	three
+1	四	four
+1	五	five
+1	六	six
+1	七	seven
+1	八	eight
+1	九	nine
+1	十	ten
+1	百	hundred
+1	千	thousand
+1	上	top, above
+1	下	bottom, below
+1	左	left
+1	右	right
+1	中	inside, middle
+1	大	large
+1	小	small
+1	月	month, moon
+1	日	day, sun
+1	年	year
+1	早	early
+1	木	tree
+1	林	woods
+1	山	mountain
+1	川	river
+1	土	soil
+1	空	sky
+1	田	rice field
+1	天	heaven, sky
+1	生	living, birth, raw
+1	花	flower
+1	草	grass
+1	虫	insect
+1	犬	dog
+1	人	person
+1	名	name
+1	女	female
+1	男	male
+1	子	child
+1	目	eye
+1	耳	ear
+1	口	mouth
+1	手	hand
+1	足	foot, suffice
+1	見	see
+1	音	sound
+1	力	power
+1	気	spirit, air
+1	円	yen, circle
+1	入	enter
+1	出	exit
+1	立	stand up
+1	休	rest
+1	先	previous
+1	夕	evening
+1	本	book
+1	文	text
+1	字	character
+1	学	study
+1	校	school
+1	村	village
+1	町	town
+1	森	forest
+1	正	correct
+1	水	water
+1	火	fire
+1	玉	jewel, beauty, emperor
+1	王	king
+1	石	stone
+1	竹	bamboo
+1	糸	thread
+1	貝	shellfish
+1	車	vehicle
+1	金	gold, money
+1	雨	rain
+1	赤	red
+1	青	blue
+1	白	white
+2	数	number, count
+2	多	many, much
+2	少	a few, a little
+2	万	ten thousand
+2	半	half
+2	形	shape
+2	太	thick
+2	細	thin
+2	広	wide
+2	長	long, leader
+2	点	point
+2	丸	circle
+2	交	intersect
+2	光	light
+2	角	corner, horn
+2	計	measure
+2	直	straight, fix
+2	線	line
+2	矢	arrow
+2	弱	weak
+2	強	strong
+2	高	high
+2	同	same
+2	親	parent
+2	母	mother
+2	父	father
+2	姉	older sister
+2	兄	older brother
+2	弟	younger brother
+2	妹	younger sister
+2	自	oneself
+2	友	friend
+2	体	body
+2	毛	hair
+2	頭	head
+2	顔	face
+2	首	neck
+2	心	heart
+2	時	time
+2	曜	day of the week
+2	朝	morning
+2	昼	daytime
+2	夜	night
+2	分	minute, understand
+2	週	week
+2	春	spring
+2	夏	summer
+2	秋	autumn
+2	冬	winter
+2	今	now
+2	新	new
+2	古	old
+2	間	interval
+2	方	direction
+2	北	north
+2	南	south
+2	東	east
+2	西	west
+2	遠	far
+2	近	near
+2	前	before
+2	後	after
+2	内	inside
+2	外	outside
+2	場	place
+2	地	ground
+2	国	country
+2	園	garden
+2	谷	valley
+2	野	field
+2	原	meadow, plain
+2	里	hometown
+2	市	city
+2	京	capital
+2	風	wind, -style
+2	雪	snow
+2	雲	cloud
+2	池	pond
+2	海	sea
+2	岩	rock
+2	星	star
+2	室	room
+2	戸	door
+2	家	house
+2	寺	Buddhist temple
+2	通	pass through, commute
+2	門	gates
+2	道	road
+2	話	talk
+2	言	say
+2	答	answer
+2	声	voice
+2	聞	hear, listen, ask
+2	語	language
+2	読	read
+2	書	write
+2	記	record
+2	紙	paper
+2	画	brush stroke
+2	絵	picture
+2	図	drawing
+2	工	craft
+2	教	teach
+2	晴	clear
+2	思	think
+2	考	consider
+2	知	know
+2	才	age, ability
+2	理	reason
+2	算	calculate
+2	作	make
+2	元	origin
+2	食	eat
+2	肉	meat
+2	馬	horse
+2	牛	cow
+2	魚	fish
+2	鳥	bird
+2	羽	feather
+2	鳴	chirp
+2	麦	wheat
+2	米	rice
+2	茶	tea
+2	色	colour
+2	黄	yellow
+2	黒	black
+2	来	come
+2	行	go
+2	帰	return
+2	歩	walk
+2	走	run
+2	止	stop
+2	活	active
+2	店	store
+2	買	buy
+2	売	sell
+2	午	noon
+2	汽	steam
+2	弓	bow
+2	回	number of times, revolve
+2	会	meet
+2	組	team
+2	船	ship
+2	明	bright
+2	社	company
+2	切	cut
+2	電	electricity
+2	毎	every
+2	合	fit
+2	当	this, hit
+2	台	pedestal
+2	楽	music, pleasure
+2	公	public
+2	引	pull
+2	科	section, grade
+2	歌	song
+2	刀	sword
+2	番	number
+2	用	use
+2	何	what
+3	丁	street, district
+3	世	generation
+3	両	both
+3	主	master, main
+3	乗	ride
+3	予	beforehand
+3	事	intangible thing
+3	仕	serve
+3	他	other
+3	代	era, substitute
+3	住	dwell
+3	使	use
+3	係	person in charge
+3	倍	double
+3	全	whole
+3	具	tool
+3	写	copy
+3	列	row
+3	助	help
+3	勉	diligence
+3	動	move
+3	勝	win
+3	化	change
+3	区	district
+3	医	doctor
+3	去	leave
+3	反	anti-
+3	取	take
+3	受	receive
+3	号	number
+3	向	face
+3	君	you, monarch
+3	味	flavor
+3	命	fate, life
+3	和	harmony, Japanese
+3	品	article
+3	員	employee
+3	商	commerce
+3	問	question
+3	坂	slope
+3	央	center
+3	始	begin
+3	委	committee
+3	守	protect
+3	安	cheap, calm
+3	定	determine
+3	実	fruit, realization
+3	客	guest
+3	宮	Shinto shrine, prince
+3	宿	inn
+3	寒	cold (weather)
+3	対	opposite, against
+3	局	office
+3	屋	roof
+3	岸	shore
+3	島	island
+3	州	state, province
+3	帳	notebook
+3	平	flat
+3	幸	happiness
+3	度	degree
+3	庫	warehouse
+3	庭	yard
+3	式	style, ceremony, numerical formula
+3	役	role
+3	待	wait
+3	急	hurry
+3	息	breath
+3	悪	bad
+3	悲	sad
+3	想	thought
+3	意	idea
+3	感	feel
+3	所	place
+3	打	hit
+3	投	throw
+3	拾	pick up
+3	持	hold
+3	指	finger, point
+3	放	release
+3	整	organize
+3	旅	trip
+3	族	tribe
+3	昔	long ago
+3	昭	shine
+3	暑	hot
+3	暗	dark
+3	曲	melody, curve
+3	有	possess
+3	服	clothes
+3	期	period of time
+3	板	board
+3	柱	pillar
+3	根	root
+3	植	plant
+3	業	business
+3	様	appearance
+3	横	horizontal
+3	橋	bridge
+3	次	next
+3	歯	tooth
+3	死	death
+3	氷	ice
+3	決	decide
+3	油	oil
+3	波	wave
+3	注	pour
+3	泳	swim
+3	洋	ocean
+3	流	stream
+3	消	extinguish
+3	深	deep
+3	温	warm
+3	港	harbor
+3	湖	lake
+3	湯	hot water
+3	漢	Chinese
+3	炭	charcoal
+3	物	(tangible) thing
+3	球	sphere
+3	由	reason
+3	申	say
+3	界	world
+3	畑	farm
+3	病	sick
+3	発	departure
+3	登	climb
+3	皮	skin
+3	皿	dish
+3	相	mutual
+3	県	prefecture
+3	真	true
+3	着	wear, arrive
+3	短	short
+3	研	sharpen
+3	礼	manners
+3	神	deity
+3	祭	festival
+3	福	luck
+3	秒	second
+3	究	research
+3	章	chapter
+3	童	juvenile
+3	笛	flute
+3	第	ordinal
+3	筆	writing brush
+3	等	class
+3	箱	box
+3	級	rank
+3	終	end
+3	緑	green
+3	練	practice
+3	羊	sheep
+3	美	beauty
+3	習	learn
+3	者	someone
+3	育	raise
+3	苦	suffer, bitter
+3	荷	luggage
+3	落	fall
+3	葉	leaf
+3	薬	medicine
+3	血	blood
+3	表	express
+3	詩	poem
+3	調	tone, find
+3	談	discuss
+3	豆	beans
+3	負	lose
+3	起	awaken
+3	路	path
+3	身	body
+3	転	to shift, fall down
+3	軽	light
+3	農	agriculture
+3	返	return
+3	追	follow
+3	送	send
+3	速	fast
+3	進	progress
+3	遊	play
+3	運	carry
+3	部	part
+3	都	metropolis
+3	配	distribute
+3	酒	liquor
+3	重	heavy, gravity, pile
+3	鉄	iron
+3	銀	silver
+3	開	open
+3	院	institution
+3	陽	sun
+3	階	storey
+3	集	gather
+3	面	surface
+3	題	topic
+3	飲	drink
+3	館	public building
+3	駅	station
+3	鼻	nose
+4	不	not
+4	争	conflict
+4	付	attach
+4	令	orders
+4	以	reference point
+4	仲	relationship
+4	伝	convey
+4	位	rank
+4	低	low
+4	例	example
+4	便	facility, flight, mail
+4	信	trust
+4	倉	storage
+4	候	climate
+4	借	borrow
+4	停	halt
+4	健	healthy
+4	側	side
+4	働	work
+4	億	hundred million
+4	兆	portent, trillion
+4	児	offspring
+4	共	together
+4	兵	soldier
+4	典	code
+4	冷	cool
+4	初	first
+4	別	separate
+4	利	profit
+4	刷	printing
+4	副	vice-
+4	功	achievement
+4	加	add
+4	努	toil
+4	労	labor
+4	勇	courage
+4	包	wrap
+4	卒	graduate
+4	協	cooperation
+4	単	simple
+4	博	wide knowledge, Dr.
+4	印	mark
+4	参	participate
+4	史	history
+4	司	director
+4	各	each
+4	告	tell
+4	周	circumference
+4	唱	chant
+4	喜	rejoice, joy
+4	器	container
+4	囲	surround
+4	固	harden
+4	型	model
+4	堂	public chamber
+4	塩	salt
+4	士	gentleman
+4	変	change, strange
+4	夫	husband
+4	失	lose
+4	好	like
+4	季	seasons
+4	孫	grandchild
+4	完	perfect
+4	官	government official
+4	害	harm
+4	察	guess
+4	巣	nest
+4	差	distinction
+4	希	hope
+4	席	seat
+4	帯	sash
+4	底	bottom
+4	府	urban prefecture
+4	康	ease
+4	建	build
+4	径	diameter
+4	徒	junior
+4	得	acquire
+4	必	inevitable
+4	念	thought
+4	愛	love
+4	成	become
+4	戦	war
+4	折	fold, break
+4	挙	raise
+4	改	reformation
+4	救	salvation
+4	敗	break, failure
+4	散	scatter
+4	料	fee
+4	旗	flag
+4	昨	yesterday
+4	景	scenery
+4	最	superlative
+4	望	hope
+4	未	un-
+4	末	end
+4	札	bill, plate, tag
+4	材	lumber, material
+4	束	bundle
+4	松	pine
+4	果	accomplish, fruit
+4	栄	prosperity
+4	案	plan
+4	梅	plum
+4	械	contraption
+4	極	poles
+4	標	signpost
+4	機	machine
+4	欠	lack
+4	歴	curriculum
+4	残	remainder, left
+4	殺	kill
+4	毒	poison
+4	氏	surname, Mr.
+4	民	people
+4	求	request
+4	治	govern, heal
+4	法	method
+4	泣	cry
+4	浅	shallow
+4	浴	bathe, bask
+4	清	pure
+4	満	full
+4	漁	look for, fishing
+4	灯	lamp
+4	無	nothing
+4	然	so, although
+4	焼	bake
+4	照	illuminate
+4	熱	heat
+4	牧	pasture, breed
+4	特	special
+4	産	give birth
+4	的	target
+4	省	government ministry, omit, look back
+4	祝	celebrate
+4	票	ballot
+4	種	species, seed
+4	積	accumulate, pile
+4	競	emulate
+4	笑	laugh
+4	管	pipe
+4	節	node
+4	粉	flour
+4	紀	chronicle
+4	約	promise
+4	結	tie
+4	給	salary
+4	続	continue
+4	置	put
+4	老	old man
+4	胃	stomach
+4	脈	vein
+4	腸	intestines
+4	臣	retainer
+4	航	cruise
+4	良	good
+4	芸	art
+4	芽	bud
+4	英	England
+4	菜	vegetable
+4	街	street, city
+4	衣	garment
+4	要	need
+4	覚	memorize
+4	観	observe
+4	訓	instruction
+4	試	test
+4	説	theory
+4	課	section
+4	議	deliberation
+4	象	elephant, figure
+4	貨	currency, cargo
+4	貯	savings
+4	費	expense
+4	賞	prize
+4	軍	army
+4	輪	wheel
+4	辞	resign, speech, encyclopedia
+4	辺	edge, vicinity
+4	連	take along
+4	達	attain
+4	選	choose
+4	郡	county
+4	量	quantity
+4	録	transcript
+4	鏡	mirror
+4	関	related
+4	陸	land
+4	隊	squad
+4	静	quiet
+4	順	obey
+4	願	request
+4	類	sort
+4	飛	fly
+4	飯	meal
+4	養	foster
+4	験	verify
+5	久	long time
+5	仏	Buddha
+5	仮	sham
+5	件	affair
+5	任	responsibility
+5	似	resemble
+5	余	surplus
+5	価	value
+5	保	preserve
+5	修	discipline
+5	俵	straw bag
+5	個	individual
+5	備	provide
+5	像	statue
+5	再	again
+5	刊	publish
+5	判	judge
+5	制	control
+5	券	ticket
+5	則	rule
+5	効	effect
+5	務	duty
+5	勢	energy
+5	厚	thick
+5	句	phrase
+5	可	possible
+5	営	manage
+5	因	cause
+5	団	association
+5	圧	pressure
+5	在	exist
+5	均	level
+5	基	foundation
+5	報	report
+5	境	boundary
+5	墓	grave
+5	増	increase
+5	夢	dream
+5	妻	wife
+5	婦	lady
+5	容	contain
+5	寄	approach
+5	富	abundant
+5	導	guide
+5	居	reside
+5	属	belong
+5	布	linen
+5	師	expert
+5	常	normal
+5	幹	tree trunk
+5	序	preface
+5	弁	valve
+5	張	stretch
+5	往	journey
+5	復	recovery
+5	徳	virtue
+5	志	intention
+5	応	respond
+5	快	cheerful
+5	性	gender
+5	恩	grace
+5	情	feelings
+5	態	condition
+5	慣	accustomed
+5	承	acquiesce
+5	技	skill
+5	招	beckon
+5	授	instruct
+5	採	pick
+5	接	contact
+5	提	propose
+5	損	loss
+5	支	support
+5	政	politics
+5	故	circumstances
+5	敵	enemy
+5	断	cut off
+5	旧	old times
+5	易	easy
+5	暴	outburst
+5	条	clause
+5	枝	branch
+5	査	investigate
+5	格	status
+5	桜	cherry
+5	検	examine
+5	構	construct
+5	武	military
+5	比	compare
+5	永	eternity
+5	河	stream
+5	液	fluid
+5	混	mix
+5	減	decrease
+5	測	measure
+5	準	standard
+5	演	perform
+5	潔	undefiled
+5	災	disaster
+5	燃	burn
+5	版	printing block
+5	犯	crime
+5	状	form
+5	独	alone
+5	率	rate
+5	現	appear
+5	留	detain
+5	略	abbreviation
+5	益	benefit
+5	眼	eyeball
+5	破	rend
+5	確	certain
+5	示	indicate
+5	祖	ancestor
+5	禁	prohibition
+5	移	shift
+5	程	extent
+5	税	tax
+5	築	fabricate
+5	精	refined
+5	素	elementary
+5	経	manage
+5	統	relationship
+5	絶	discontinue
+5	綿	cotton
+5	総	whole
+5	編	compile
+5	績	exploits
+5	織	weave
+5	罪	guilt
+5	群	flock
+5	義	righteousness
+5	耕	till
+5	職	employment
+5	肥	fertilizer
+5	能	ability
+5	興	entertain
+5	舌	tongue
+5	舎	cottage
+5	術	art
+5	衛	defense
+5	製	manufacture
+5	複	duplicate
+5	規	rule
+5	解	untie
+5	設	establish
+5	許	permit
+5	証	evidence
+5	評	evaluate
+5	講	lecture
+5	謝	apologize
+5	識	discriminating
+5	護	safeguard
+5	豊	bountiful
+5	財	wealth
+5	貧	poor
+5	責	blame
+5	貸	lend
+5	貿	trade
+5	賀	congratulations
+5	資	resources
+5	賛	approve
+5	質	quality
+5	輸	transport
+5	述	mention
+5	迷	astray
+5	退	retreat
+5	逆	inverted
+5	造	create
+5	過	pass, exceed
+5	適	suitable
+5	酸	acid
+5	鉱	mineral
+5	銅	copper
+5	銭	coin
+5	防	resist
+5	限	limit
+5	険	precipitous
+5	際	occasion
+5	雑	miscellaneous
+5	非	negative
+5	預	deposit
+5	領	territory
+5	額	amount
+5	飼	domesticate
+6	並	row
+6	乱	chaos
+6	乳	milk
+6	亡	deceased
+6	仁	kindness
+6	供	offer
+6	俳	actor
+6	値	value
+6	傷	wound
+6	優	superior
+6	党	political party
+6	冊	counter for books
+6	処	dispose
+6	刻	engrave
+6	割	divide
+6	創	create
+6	劇	drama
+6	勤	diligence
+6	危	dangerous
+6	卵	egg
+6	厳	strict
+6	収	obtain
+6	后	queen
+6	否	negate
+6	吸	suck
+6	呼	call
+6	善	virtue
+6	困	quandary
+6	垂	droop
+6	城	castle
+6	域	range
+6	奏	play music
+6	奮	stirred up
+6	姿	shape
+6	存	suppose
+6	孝	filial piety
+6	宅	home
+6	宇	eaves
+6	宗	religion
+6	宙	mid-air
+6	宝	treasure
+6	宣	proclaim
+6	密	secrecy
+6	寸	measurement
+6	専	specialty
+6	射	shoot
+6	将	leader
+6	尊	revered
+6	就	concerning
+6	尺	measure of length
+6	届	deliver
+6	展	expand
+6	層	stratum
+6	己	self
+6	巻	scroll
+6	幕	curtain
+6	干	dry
+6	幼	infancy
+6	庁	government office
+6	座	sit
+6	延	prolong
+6	律	rhythm
+6	従	obey
+6	忘	forget
+6	忠	loyalty
+6	憲	constitution
+6	我	ego
+6	批	criticism
+6	担	shouldering
+6	拝	worship
+6	拡	broaden
+6	捨	discard
+6	探	look for, search
+6	推	infer
+6	揮	brandish
+6	操	maneuver
+6	敬	respect
+6	映	reflect
+6	晩	nightfall
+6	暖	warmth
+6	暮	livelihood
+6	朗	melodious
+6	机	desk
+6	枚	sheet of...
+6	染	dye
+6	株	stocks
+6	棒	rod
+6	模	imitation
+6	権	rights
+6	樹	trees
+6	欲	longing
+6	段	steps
+6	沿	run alongside
+6	泉	fountain
+6	洗	wash
+6	派	sect
+6	済	settle
+6	源	source
+6	潮	tide
+6	激	violent
+6	灰	ashes
+6	熟	ripen
+6	片	one-sided
+6	班	corps
+6	異	uncommon
+6	疑	doubt
+6	痛	pain
+6	皇	emperor
+6	盛	prosper
+6	盟	alliance
+6	看	watch over
+6	砂	sand
+6	磁	magnet
+6	私	me
+6	秘	secret
+6	穀	cereal
+6	穴	hole
+6	窓	window
+6	筋	muscle
+6	策	scheme
+6	簡	simplicity
+6	糖	sugar
+6	系	lineage
+6	紅	crimson
+6	納	settlement
+6	純	genuine
+6	絹	silk
+6	縦	vertical
+6	縮	shrink
+6	署	government office
+6	翌	forthcoming
+6	聖	holy
+6	肺	lung
+6	背	back
+6	胸	chest, breast
+6	脳	brain
+6	腹	abdomen
+6	臓	entrails
+6	臨	lookover
+6	至	climax
+6	若	young
+6	著	renowned
+6	蒸	foment
+6	蔵	storehouse
+6	蚕	silkworm
+6	衆	masses
+6	裁	judge
+6	装	attire
+6	裏	rear
+6	補	supplement
+6	視	look at
+6	覧	perusal
+6	討	chastise
+6	訪	visit
+6	訳	translate, reason
+6	詞	term
+6	誌	document
+6	認	recognize
+6	誕	born
+6	誠	sincerity
+6	誤	mistake
+6	論	argument, discussion
+6	諸	various
+6	警	admonish
+6	貴	precious
+6	賃	fare
+6	遺	bequeath
+6	郵	mail
+6	郷	home town
+6	針	needle
+6	鋼	steel
+6	閉	closed
+6	閣	tower
+6	降	descend
+6	陛	majesty
+6	除	exclude
+6	障	hurt
+6	難	difficult
+6	革	leather
+6	頂	top, receive
+6	骨	bone
