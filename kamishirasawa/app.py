@@ -80,7 +80,7 @@ class KanjiKanaLabel(QWidget):
                             label.setStyleSheet(f"QLabel{{font-size: {self.furigana_font_size}px;}}")
                             self.layout().addWidget(label, 0, column, alignment=Qt.AlignmentFlag.AlignCenter)
                         
-                        self.layout().addWidget(QLabel(text=og), column, alignment=Qt.AlignmentFlag.AlignCenter)                            
+                        self.layout().addWidget(QLabel(text=og), 1, column, alignment=Qt.AlignmentFlag.AlignCenter)                            
             
             case self.Mode.ROMAJI:
                 self.layout().addWidget(QLabel(text=lang_utils.to_romaji(text)))
@@ -198,12 +198,12 @@ class TextInputFlashcardGameWidget(FlashcardGameWidget):
                 
                 if self.game.check_answer(self.answer_input.text()):
                     self.feedback_label.setText("<b>Correct!</b>")
-                    self.on_incorrect_answer()
+                    self.on_correct_answer()
                 
                 else:
                     self.feedback_label.setText(
                         f"{'<b>Wrong!</b> ' if self.feedback_label.text() else ''}Should be: {self.game.formatted_answer}")
-                    self.game.mark_as_incorrect()
+                    self.on_incorrect_answer()
                     
             case self.State.GIVING_FEEDBACK:
                 self.state = self.State.READING_ANSWER
@@ -263,10 +263,7 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
         for button, answer in zip(self.answer_buttons, available_answers):
             button.setText(answer)             
     
-    def give_answer(self, answer: str) -> None:
-        
-        print(answer)
-        
+    def give_answer(self, answer: str) -> None:        
         match self.state:
             case self.State.READING_ANSWER:                
                 self.state = self.State.GIVING_FEEDBACK
@@ -276,12 +273,12 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
                 
                 if self.game.check_answer(answer):
                     self.feedback_label.setText("<b>Correct!</b>")
-                    self.on_incorrect_answer()
+                    self.on_correct_answer()
                 
                 else:
                     self.feedback_label.setText(
                         f"<b>Wrong!</b> Should be: {self.game.formatted_answer}")
-                    self.game.mark_as_incorrect()
+                    self.on_incorrect_answer()
                     
                     
             case self.State.GIVING_FEEDBACK:
@@ -302,7 +299,7 @@ window.setWindowTitle("Kamishirasawa")
 window.setGeometry(700, 400, 300, 200)
 
 vocs = [voc for voc in Voc.get_from_json("kanji_by_grade.json") if voc.grade == 1]
-test = JaToEnGame(vocs, 3, 6)
+test = JaToEnGame(vocs, 5)
 
 layout = QHBoxLayout(window)
 layout.addWidget(ChoiceFlashcardGameWidget(game=test, choices=3))
