@@ -202,7 +202,7 @@ class TextInputFlashcardGameWidget(FlashcardGameWidget):
                 
                 else:
                     self.feedback_label.setText(
-                        f"{'<b>Wrong!</b> ' if self.feedback_label.text() else ''}Should be: {self.game.answer}")
+                        f"{'<b>Wrong!</b> ' if self.feedback_label.text() else ''}Should be: {self.game.formatted_answer}")
                     self.game.mark_as_incorrect()
                     
             case self.State.GIVING_FEEDBACK:
@@ -257,7 +257,7 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
         return widget
         
     def set_choices(self) -> None:
-        available_answers = [self.game.answer] + self.game.sample_incorrect_answers(self.choices - 1)
+        available_answers = [self.game.formatted_answer] + self.game.sample_incorrect_answers(self.choices - 1)
         random.shuffle(available_answers)
         
         for button, answer in zip(self.answer_buttons, available_answers):
@@ -280,7 +280,7 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
                 
                 else:
                     self.feedback_label.setText(
-                        f"<b>Wrong!</b> Should be: {self.game.answer}")
+                        f"<b>Wrong!</b> Should be: {self.game.formatted_answer}")
                     self.game.mark_as_incorrect()
                     
                     
