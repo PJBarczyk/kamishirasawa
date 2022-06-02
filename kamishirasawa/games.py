@@ -34,7 +34,7 @@ class FlashcardGame(ABC):
 
         flashcards = list(copy(flashcards))
         random.shuffle(flashcards)
-        self.active, self.queued = flashcards[:active_count], flashcards[active_count:]
+        self.active, self.queued, self.passed = flashcards[:active_count], flashcards[active_count:], []
         
         self.passes_left_dict = defaultdict(lambda: passes_per_flashcard)
     
@@ -79,11 +79,14 @@ class FlashcardGame(ABC):
     @abstractproperty
     def answer(self) -> str:
         ...
-
+       
+    @abstractmethod
+    def sample_incorrect_answers(self, k) -> list[str]:
+        ...
 
 class JaToEnGame(FlashcardGame):
     def check_answer(self, answer: str) -> bool:
-        return answer in self._current.meaning
+        return answer in self._current.meaning or answer == self.answer
     
     @property
     def question(self) -> str:
@@ -92,3 +95,6 @@ class JaToEnGame(FlashcardGame):
     @property
     def answer(self) -> str:
         return ", ".join(self._current.meaning)
+    
+    def sample_incorrect_answers(self, k) -> list[str]:
+        return [", ".join(voc.meaning) for voc in random.sample(self.active[1:] + self.passed, k)]

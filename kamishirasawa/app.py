@@ -1,14 +1,18 @@
+import itertools
 import logging
+import random
 import sys
 import typing
+from abc import ABC, abstractmethod
 from enum import Enum, auto
 from glob import glob
+from random import sample
 
 from PyQt6.QtCore import QRunnable, Qt, QThreadPool
 from PyQt6.QtGui import QAction, QFontDatabase, QIcon
 from PyQt6.QtWidgets import (QApplication, QButtonGroup, QGridLayout,
                              QHBoxLayout, QLabel, QLineEdit, QPushButton,
-                             QRadioButton, QVBoxLayout, QWidget)
+                             QRadioButton, QSizePolicy, QVBoxLayout, QWidget)
 
 import lang_utils
 from games import FlashcardGame, JaToEnGame, Voc
@@ -24,6 +28,12 @@ for font in glob("fonts/*.?tf"):
     QFontDatabase.addApplicationFont(font)
     
 app.setStyleSheet("QWidget{font-size: 12px;}")
+
+class MetaQAbstractWidget(type(QWidget), type(ABC)):
+    pass
+
+class QAbstractWidget(QWidget, ABC, metaclass=MetaQAbstractWidget):
+    pass
 
 class KanjiKanaLabel(QWidget):
     class Mode(Enum):
@@ -70,7 +80,7 @@ class KanjiKanaLabel(QWidget):
                             label.setStyleSheet(f"QLabel{{font-size: {self.furigana_font_size}px;}}")
                             self.layout().addWidget(label, 0, column, alignment=Qt.AlignmentFlag.AlignCenter)
                         
-                        self.layout().addWidget(QLabel(text=og), 1, column, alignment=Qt.AlignmentFlag.AlignCenter)                            
+                        self.layout().addWidget(QLabel(text=og), column, alignment=Qt.AlignmentFlag.AlignCenter)                            
             
             case self.Mode.ROMAJI:
                 self.layout().addWidget(QLabel(text=lang_utils.to_romaji(text)))
@@ -105,7 +115,7 @@ class TTSButton(QPushButton):
         QThreadPool.globalInstance().start(self.TTSRunnable(text=self.text_supplier(), lang="ja", widget=self))
         
 
-class FlashcardGameWidget(QWidget):
+class FlashcardGameWidget(QAbstractWidget):
     class State(Enum):
         READING_ANSWER = auto()
         GIVING_FEEDBACK = auto()
@@ -134,7 +144,31 @@ class FlashcardGameWidget(QWidget):
         question_widget = QWidget()
         question_widget_layout = QHBoxLayout(question_widget)
         question_widget_layout.addWidget(self.question_label)   
-        question_widget_layout.addWidget(self.tts_button)        
+        question_widget_layout.addWidget(self.tts_button)
+        
+        layout = QVBoxLayout(self)
+        layout.addWidget(r1, alignment=Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(r2, alignment=Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(r3, alignment=Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(question_widget, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.create_input_widget(), alignment=Qt.AlignmentFlag.AlignCenter)
+                
+    @abstractmethod
+    def create_input_widget(self) -> QWidget:
+        ...
+                
+    def on_correct_answer(self) -> None:
+        self.game.mark_as_correct()
+    
+    def on_incorrect_answer(self) -> None:
+        self.game.mark_as_incorrect()
+
+    def on_new_question(self) -> None:
+        self.question_label.setText(self.game.question)
+        
+class TextInputFlashcardGameWidget(FlashcardGameWidget):
+    def create_input_widget(self) -> QWidget:
+        input_widget = QWidget()
         
         self.answer_input = QLineEdit()
         self.feedback_label = QLabel()
@@ -147,15 +181,13 @@ class FlashcardGameWidget(QWidget):
         self.confirm_action.triggered.connect(lambda: self.on_confirm_pressed())
         self.addAction(self.confirm_action)
         
-        layout = QVBoxLayout(self)
-        layout.addWidget(r1, alignment=Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(r2, alignment=Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(r3, alignment=Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(question_widget, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout = QVBoxLayout(input_widget)
         layout.addWidget(self.answer_input, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.feedback_label, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.confirm_button, alignment=Qt.AlignmentFlag.AlignCenter)
         
+        return input_widget
+    
     def on_confirm_pressed(self):
         match self.state:
             case self.State.READING_ANSWER:                
@@ -164,25 +196,105 @@ class FlashcardGameWidget(QWidget):
                 self.answer_input.setDisabled(True)
                 self.confirm_button.setText("Next")
                 
-                if self.memory_test.check_answer(self.answer_input.text()):
+                if self.game.check_answer(self.answer_input.text()):
                     self.feedback_label.setText("<b>Correct!</b>")
-                    self.memory_test.mark_as_correct()
+                    self.on_incorrect_answer()
                 
                 else:
                     self.feedback_label.setText(
-                        f"{'<b>Wrong!</b> ' if self.feedback_label.text() else ''}Should  be: {self.memory_test.answer}")
-                    self.memory_test.mark_as_incorrect()
+                        f"{'<b>Wrong!</b> ' if self.feedback_label.text() else ''}Should be: {self.game.answer}")
+                    self.game.mark_as_incorrect()
                     
             case self.State.GIVING_FEEDBACK:
-                
                 self.state = self.State.READING_ANSWER
                 
-                self.question_label.setText(self.memory_test.question)
                 self.answer_input.setDisabled(False)
                 self.answer_input.setText("")
                 self.answer_input.setFocus()
                 self.feedback_label.setText("")
                 self.confirm_button.setText("Check")
+                
+                self.on_new_question()
+                
+class ChoiceFlashcardGameWidget(FlashcardGameWidget):
+    def __init__(self, game: FlashcardGame, choices: int, *args, **kwargs) -> None:
+        assert choices >= 2
+        self.choices = choices
+        
+        super().__init__(game, *args, **kwargs)
+        
+    def create_input_widget(self) -> QWidget:
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        
+        self.feedback_label = QLabel()
+        layout.addWidget(self.feedback_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        self.answer_buttons = [QPushButton() for _ in range(self.choices)]
+        self.answer_button_actions = []
+        
+        def connect(button: QPushButton, action: QAction):
+            button.clicked.connect(lambda: self.give_answer(button.text()))
+            if action:
+                action.triggered.connect(lambda: self.give_answer(button.text()))
+        
+        keys_iter = iter([str(n) for n in [*range(1, 10)] + [0]])
+        for button in self.answer_buttons:
+            layout.addWidget(button, alignment=Qt.AlignmentFlag.AlignCenter)
+            
+            try:
+                action = QAction()
+                action.setShortcut(next(keys_iter))
+                button.addAction(action)
+                self.answer_button_actions.append(action)
+            except:
+                action = None
+            
+            connect(button, action)
+            
+        self.set_choices()
+        
+        return widget
+        
+    def set_choices(self) -> None:
+        available_answers = [self.game.answer] + self.game.sample_incorrect_answers(self.choices - 1)
+        random.shuffle(available_answers)
+        
+        for button, answer in zip(self.answer_buttons, available_answers):
+            button.setText(answer)             
+    
+    def give_answer(self, answer: str) -> None:
+        
+        print(answer)
+        
+        match self.state:
+            case self.State.READING_ANSWER:                
+                self.state = self.State.GIVING_FEEDBACK
+                
+                for button in self.answer_buttons:
+                    button.setDisabled(not self.game.check_answer(button.text()))
+                
+                if self.game.check_answer(answer):
+                    self.feedback_label.setText("<b>Correct!</b>")
+                    self.on_incorrect_answer()
+                
+                else:
+                    self.feedback_label.setText(
+                        f"<b>Wrong!</b> Should be: {self.game.answer}")
+                    self.game.mark_as_incorrect()
+                    
+                    
+            case self.State.GIVING_FEEDBACK:
+                self.state = self.State.READING_ANSWER
+                
+                for button in self.answer_buttons:
+                    button.setDisabled(False)
+                self.set_choices()
+                    
+                self.feedback_label.setText("")
+                
+                self.on_new_question()
+        
 
 
 window = QWidget()
@@ -193,7 +305,7 @@ vocs = [voc for voc in Voc.get_from_json("kanji_by_grade.json") if voc.grade == 
 test = JaToEnGame(vocs, 3, 6)
 
 layout = QHBoxLayout(window)
-layout.addWidget(FlashcardGameWidget(game=test))
+layout.addWidget(ChoiceFlashcardGameWidget(game=test, choices=3))
 
 window.show()
 
