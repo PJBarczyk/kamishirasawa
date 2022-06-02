@@ -105,15 +105,15 @@ class TTSButton(QPushButton):
         QThreadPool.globalInstance().start(self.TTSRunnable(text=self.text_supplier(), lang="ja", widget=self))
         
 
-class MemoryTestWidget(QWidget):
+class FlashcardGameWidget(QWidget):
     class State(Enum):
         READING_ANSWER = auto()
         GIVING_FEEDBACK = auto()
     
-    def __init__(self, memory_test: FlashcardGame, *args, **kwargs) -> None:
+    def __init__(self, game: FlashcardGame, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         
-        self.memory_test = memory_test
+        self.game = game
         self.state = self.State.READING_ANSWER
         
         self.display_settings = QButtonGroup()
@@ -129,7 +129,7 @@ class MemoryTestWidget(QWidget):
         self.display_settings.addButton(r3)
         
         self.question_label = KanjiKanaLabel()
-        self.question_label.setText(memory_test.question)
+        self.question_label.setText(game.question)
         self.tts_button = TTSButton(self.question_label.text)
         question_widget = QWidget()
         question_widget_layout = QHBoxLayout(question_widget)
@@ -193,7 +193,7 @@ vocs = [voc for voc in Voc.get_from_json("kanji_by_grade.json") if voc.grade == 
 test = JaToEnGame(vocs, 3, 6)
 
 layout = QHBoxLayout(window)
-layout.addWidget(MemoryTestWidget(memory_test=test))
+layout.addWidget(FlashcardGameWidget(game=test))
 
 window.show()
 
