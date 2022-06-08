@@ -172,7 +172,9 @@ class DBManager(QWidget):
         save_changes_layout = QHBoxLayout(self.save_changes_widget)
         
         self.revert_changes_button = QPushButton("Revert changes")
+        self.revert_changes_button.clicked.connect(self.revert_changes)
         self.save_changes_button = QPushButton("Save changes")
+        self.save_changes_button.clicked.connect(self.save_changes)
         
         save_changes_layout.addWidget(self.revert_changes_button)
         save_changes_layout.addWidget(self.save_changes_button)
@@ -185,7 +187,8 @@ class DBManager(QWidget):
     def place_table(self):
         self.voc_table = QTableWidget()
         self.voc_table.setColumnCount(3)
-        self.voc_table.itemChanged.connect(lambda: self.keine.dbs_lock.set_value(True))
+        self.voc_table.itemActivated.connect(self.on_item_selected)
+        self.voc_table.itemChanged.connect(self.on_item_changed)
         
         self.voc_table.setHorizontalHeaderLabels(["Word", "Meaning", "Categories"])
         header = self.voc_table.horizontalHeader()
@@ -216,7 +219,23 @@ class DBManager(QWidget):
                         current_index = i
                         
                 self.db_combobox.setCurrentIndex(current_index)
-                self.db_selection_widget.setDisabled(False)           
+                self.db_selection_widget.setDisabled(False)      
+        
+    def on_item_selected(self, item: QTableWidgetItem):
+        pass
+                
+    def on_item_changed(self, item: QTableWidgetItem):
+        item.setText(item.text())
+        
+        def validate(self, item: QTableWidgetItem):
+            text = item.text()
+            match item.column():
+                case 0:
+                    return bool(text)
+                case 1:
+                    pass
+                case 2:
+                    pass
             
                 
     def redraw_voc_table(self):  
@@ -242,6 +261,20 @@ class DBManager(QWidget):
             self.voc_table.setRowCount(0)
 
         self.voc_table.blockSignals(False)
+        
+    def save_changes(self):
+        assert self.keine.dbs_lock
+        
+        self.voc_table.items()
+        
+        self.keine.dbs_lock.value = False
+        
+    def revert_changes(self):
+        assert self.keine.dbs_lock
+        
+        self.redraw_voc_table()
+        
+        self.keine.dbs_lock.value = False
 
 class KanjiKanaLabel(QWidget):
     class Mode(Enum):
