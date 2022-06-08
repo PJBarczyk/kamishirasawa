@@ -11,6 +11,8 @@ from PyQt6.QtWidgets import (QButtonGroup, QComboBox, QFileDialog, QGridLayout,
                              QPushButton, QRadioButton, QTableWidget,
                              QVBoxLayout, QWidget, QTableWidgetItem, QHeaderView)
 
+from utils import ObservableFlag
+
 import lang_utils
 from games import FlashcardGame
 from keine import DBAlreadyAttachedError, DBParseError, Keine
@@ -48,11 +50,14 @@ class MainWindow(QMainWindow):
         filemenu = menubar.addMenu("File")
         attach = filemenu.addAction("Attach DB")
         attach.setShortcut("Ctrl+Shift+A")
-        disconnect = filemenu.addAction("Disconnect all DBs")
-        disconnect.setDisabled(True)
         attach.triggered.connect(lambda: self.attach_db_dialog(disconnect))
+        
+        disconnect = filemenu.addAction("Disconnect all DBs")
         disconnect.triggered.connect(lambda: self.disconnect_all_dbs(disconnect))
-        self.keine.on_dbs_changed(lambda: disconnect.setDisabled(not any(self.keine.dbs)))
+        disconnect.setDisabled(True)
+        disconnect_disable_func = lambda *_: disconnect.setDisabled(not self.keine.dbs or bool(self.keine.dbs_lock))
+        self.keine.on_dbs_changed(disconnect_disable_func)
+        self.keine.dbs_lock.add_on_write(disconnect_disable_func)
         
         filemenu.addSeparator()
         quit = filemenu.addAction("Quit")
@@ -122,22 +127,14 @@ class DBManager(QWidget):
     def __init__(self, parent: QWidget, keine: Keine, *args, **kwargs) -> None:
         super().__init__(parent, *args, **kwargs)
         
-        
+        self.keine = keine
+        self.dbs = set()
+        self.keine.on_dbs_changed += self.update_db_selector
         
         layout = QVBoxLayout(self)
         
-        self.db_selection_widget = QWidget(self)
-        self.selection_layout = QHBoxLayout(self.db_selection_widget)
-        self.db_combobox = QComboBox(self.db_selection_widget)
-        self.db_combobox.currentIndexChanged.connect(self.redraw_voc_table)
-        detach_button = QPushButton(icon=QIcon("./icons/detach.png"))
-        detach_button.setFixedSize(32, 32)
-        detach_button.clicked.connect(lambda: self.keine.detach_db(self.db_combobox.currentData()))
-        self.selection_layout.addWidget(self.db_combobox, 1)
-        self.selection_layout.addWidget(detach_button, 0)
-        
-        layout.addWidget(self.db_selection_widget)
-        
+        self.place_db_selection_widget()
+        self.place_save_changes_widget()
         self.place_table()
         self.redraw_voc_table()
         
@@ -151,14 +148,44 @@ class DBManager(QWidget):
         layout.addWidget(self.db_edit_widget)
         
         
-        self.keine = keine
-        self.dbs = set()
-        self.keine.on_dbs_changed += self.update_db_selector
         self.update_db_selector()
+        
+    def place_db_selection_widget(self):
+        self.db_selection_widget = QWidget(self)
+        selection_layout = QHBoxLayout(self.db_selection_widget)
+        
+        self.db_combobox = QComboBox(self.db_selection_widget)
+        self.db_combobox.currentIndexChanged.connect(self.redraw_voc_table)
+        detach_button = QPushButton(icon=QIcon("./icons/detach.png"))
+        detach_button.setFixedSize(32, 32)
+        detach_button.clicked.connect(lambda: self.keine.detach_db(self.db_combobox.currentData()))
+        
+        selection_layout.addWidget(self.db_combobox, 1)
+        selection_layout.addWidget(detach_button, 0)
+        self.layout().addWidget(self.db_selection_widget)
+        
+        self.keine.dbs_lock.add_on_write(lambda b: self.db_selection_widget.setDisabled(b))
+        
+        
+    def place_save_changes_widget(self):
+        self.save_changes_widget = QWidget()
+        save_changes_layout = QHBoxLayout(self.save_changes_widget)
+        
+        self.revert_changes_button = QPushButton("Revert changes")
+        self.save_changes_button = QPushButton("Save changes")
+        
+        save_changes_layout.addWidget(self.revert_changes_button)
+        save_changes_layout.addWidget(self.save_changes_button)
+        self.layout().addWidget(self.save_changes_widget)
+        
+        self.keine.dbs_lock.add_on_write(lambda b: self.save_changes_widget.setDisabled(not b))
+        self.save_changes_widget.setDisabled(True)
+        
         
     def place_table(self):
         self.voc_table = QTableWidget()
         self.voc_table.setColumnCount(3)
+        self.voc_table.itemChanged.connect(lambda: self.keine.dbs_lock.set_value(True))
         
         self.voc_table.setHorizontalHeaderLabels(["Word", "Meaning", "Categories"])
         header = self.voc_table.horizontalHeader()
@@ -194,6 +221,7 @@ class DBManager(QWidget):
                 
     def redraw_voc_table(self):  
         self.voc_table.clearContents()
+        self.voc_table.blockSignals(True)
         header = self.voc_table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
@@ -213,6 +241,7 @@ class DBManager(QWidget):
         else:
             self.voc_table.setRowCount(0)
 
+        self.voc_table.blockSignals(False)
 
 class KanjiKanaLabel(QWidget):
     class Mode(Enum):

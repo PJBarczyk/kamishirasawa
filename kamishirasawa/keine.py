@@ -1,15 +1,18 @@
 import json
 import os
 
-
 from games import Voc
-from utils import Event
+from utils import Event, ObservableFlag
+
 
 class Keine:
     def __init__(self) -> None:
         self.dbs: set[Voc] = set()
         
         self.on_dbs_changed = Event()
+        
+        self.dbs_lock = ObservableFlag(False)
+        self.dbs_lock.add_on_write(lambda b: print(f"DBs lock {'on' if b else 'off'}."))
         
     def attach_db(self, path) -> None:
         if os.path.normpath(path) in {db.path for db in self.dbs}:
