@@ -54,6 +54,10 @@ class MainWindow(QMainWindow):
         attach.setShortcut("Ctrl+Shift+A")
         attach.triggered.connect(lambda: self.attach_db_dialog(disconnect))
         
+        create = filemenu.addAction("Create a new DB")
+        create.setShortcut("Ctrl+Shift+N")
+        create.triggered.connect(lambda: self.create_db_dialog(disconnect))
+
         disconnect = filemenu.addAction("Disconnect all DBs")
         disconnect.triggered.connect(lambda: self.disconnect_all_dbs(disconnect))
         disconnect.setDisabled(True)
@@ -70,13 +74,15 @@ class MainWindow(QMainWindow):
         self.keine.dbs_lock.add_on_write(lambda b: self.learnmenu.setDisabled(b))
         hiragana = self.learnmenu.addAction("Hiragana")
         hiragana.triggered.connect(lambda: self.replace_central_widget(HiraganaTestSetupWidget()))
+
+    DB_FILE_FILTER = "Kamishirasawa DB files (*.kamidb);;All files (*.*)"
         
     def attach_db_dialog(self, disconnect_action = QAction):
         paths, _ = QFileDialog.getOpenFileNames(
             self,
             "Attach DB",
             os.path.dirname(__file__),
-            "Kamishirasawa DB files (*.kamidb);;All files (*.*)")
+            self.DB_FILE_FILTER)
         
         if len(paths) == 1:
             path = paths[0]
@@ -117,7 +123,21 @@ class MainWindow(QMainWindow):
             
             
         disconnect_action.setDisabled(False)
-            
+
+    def create_db_dialog(self, disconnect_action = QAction):
+
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Create DB",
+            os.path.dirname(__file__),
+            self.DB_FILE_FILTER)
+
+        if path:
+            try:
+                self.keine.create_db(path)
+            except:
+                self.statusbar.showMessage(f"Failed to create the DB.")
+
     def disconnect_all_dbs(self, disconnect_action = QAction):
         if self.keine.dbs:
             self.keine.close_all_dbs()
@@ -143,6 +163,7 @@ class DBManager(QWidget):
         self.keine = keine
         self.selected_db = None
         self.keine.on_dbs_changed += self.update_db_selector
+        self.keine.on_dbs_changed += lambda: self.db_edit_widget.setEnabled(len(self.keine.dbs) > 0)
         
         layout = QVBoxLayout(self)
         
@@ -154,9 +175,12 @@ class DBManager(QWidget):
         self.db_edit_widget = QWidget(self)
         edit_layout = QHBoxLayout(self.db_edit_widget)
         self.db_delete_voc = QPushButton(text="Remove selected")
+        self.db_delete_voc.clicked.connect(self.remove_item)
         self.db_add_voc = QPushButton(text="Add new")
+        self.db_add_voc.clicked.connect(self.add_item)
         edit_layout.addWidget(self.db_delete_voc)        
         edit_layout.addWidget(self.db_add_voc)
+        self.db_edit_widget.setDisabled(True)
         
         layout.addWidget(self.db_edit_widget)
         
@@ -230,7 +254,23 @@ class DBManager(QWidget):
     def on_selected_db_changed(self, index: typing.SupportsIndex):
         self.selected_db: DB = self.db_combobox.itemData(index, Qt.ItemDataRole.UserRole)
         self.redraw_voc_table()
-        
+
+    def remove_item(self):
+        rows = {x.row() for x in self.voc_table.selectedIndexes()}
+        if rows:
+            self.keine.dbs_lock.value = True
+            for row in rows:
+                self.voc_table.removeRow(row)
+            self.save_changes_widget.setEnabled(True)
+
+    def add_item(self):
+        self.keine.dbs_lock.value = True
+        count = self.voc_table.rowCount()
+        self.voc_table.setRowCount(count + 1)
+        self.set_voc(count, Voc("-", ["-"], ["-"]))
+        self.voc_table.scrollToBottom()
+        self.save_changes_widget.setEnabled(True)
+
     def on_item_selected(self, item: QTableWidgetItem):
         print(f"Selected '{item.text()}'({item.row()}, {item.column()})")
         self.last_selected_text = item.text()
@@ -266,7 +306,15 @@ class DBManager(QWidget):
         
         self.voc_table.blockSignals(False)
             
-                
+    def set_voc(self, row: int, voc: Voc):
+        delimiter = self.list_attribute_delimiters[0]
+        for column, (text, data) in enumerate([(voc.word, voc.word),
+                                                (delimiter.join(voc.meaning), voc.meaning),
+                                                (delimiter.join(voc.categories), voc.categories)]):
+            item = QTableWidgetItem(text)
+            item.setData(Qt.ItemDataRole.UserRole, data)
+            self.voc_table.setItem(row, column, item)
+
     def redraw_voc_table(self):  
         self.voc_table.model().blockSignals(True)
         self.voc_table.clearContents()
@@ -282,23 +330,14 @@ class DBManager(QWidget):
             vocs = self.selected_db.read_data()
             
             self.voc_table.setRowCount(len(vocs))
-            delimiter = self.list_attribute_delimiters[0]
             for row, voc in enumerate(vocs):
-                for column, (text, data) in enumerate([(voc.word, voc.word), 
-                                                       (delimiter.join(voc.meaning), voc.meaning),
-                                                       (delimiter.join(voc.categories), voc.categories)]):
-                    item = QTableWidgetItem(text)
-                    item.setData(Qt.ItemDataRole.UserRole, data)
-                    self.voc_table.setItem(row, column, item)
-            
+                self.set_voc(row, voc)
             self.voc_table.resizeRowsToContents()
         else:
             self.voc_table.setRowCount(0)
 
         self.voc_table.model().blockSignals(False)
         self.voc_table.model().layoutChanged.emit()
-        
-
         
     def save_changes(self):
         assert self.keine.dbs_lock

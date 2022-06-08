@@ -14,6 +14,9 @@ class DBParseError(Exception):
 class DBAlreadyAttachedError(Exception):
     pass
 
+class DBFileError(Exception):
+    pass
+
 class DB:
     def __init__(self, path) -> None:
         try:
@@ -58,7 +61,17 @@ class Keine:
         except Exception as e:
             db.close()
             raise DBParseError(*e.args)
-        
+
+    def create_db(self, path: str):
+        try:
+            db = DB(path)
+            db.clear_and_write_data([])
+            self.dbs.add(db)
+            self.on_dbs_changed()
+        except Exception as e:
+            db.close()
+            raise DBFileError(*e.args)
+
     def detach_db(self, db: DB) -> None:
         db.close()
         self.dbs.remove(db)
