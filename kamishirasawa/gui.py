@@ -5,23 +5,20 @@ import typing
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 
-
-from PyQt6.QtCore import QRunnable, Qt, QThreadPool, QAbstractItemModel
+from PyQt6.QtCore import QRunnable, Qt, QThreadPool
 from PyQt6.QtGui import QAction, QIcon
-from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QFileDialog, QGridLayout,
-                             QHBoxLayout, QLabel, QLineEdit, QMainWindow,
-                             QPushButton, QRadioButton, QTableWidget,
-                             QVBoxLayout, QWidget, QTableWidgetItem, QHeaderView)
-
-from utils import ObservableFlag
+from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QFileDialog,
+                             QGridLayout, QHBoxLayout, QHeaderView, QLabel,
+                             QLineEdit, QMainWindow, QPushButton, QRadioButton,
+                             QTableWidget, QTableWidgetItem, QVBoxLayout,
+                             QWidget)
+from lang_utils import to_hiragana
 
 import lang_utils
-from games import FlashcardGame, Voc
-from keine import DBAlreadyAttachedError, DBParseError, Keine, DB
-from tts import tts
-from utils import Event
 import utils
-from tqdm import tqdm
+from games import FlashcardGame, Voc
+from keine import DB, DBAlreadyAttachedError, DBParseError, Keine
+from tts import tts
 
 
 class MetaQAbstractWidget(type(QWidget), type(ABC)):
@@ -46,7 +43,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(self.workspace)
         
         layout.addWidget(DBManager(self, self.keine), 1)
-        # layout.addWidget(HiraganaTestSetup(self), 1)
+        layout.addWidget(HiraganaTestSetup(self), 1)
         
         self.statusbar = self.statusBar()
         
@@ -583,12 +580,18 @@ class HiraganaTestSetup(QWidget):
     def __init__(self, parent: QWidget =  None, *args, **kwargs) -> None:
         super().__init__(parent, *args, **kwargs)
         self.parent = parent
+        
+        self.layout = QHBoxLayout(self)
+        
         self.place_matrix()
+        
+        self.selected_hiragana = {}
         
         
     def place_matrix(self):
         self.matrix = QWidget(self)
-        self.layout = QGridLayout(self)
+        self.layout.addWidget(self.matrix)
+        self.matrix.layout = QGridLayout(self.matrix)
         
         vowels = ['a', 'i', 'u', 'e', 'o']
         consonants = ['', 'k', 's', 't', 'n', 'h', 'm', 'y', 'r', 'w']
@@ -613,7 +616,7 @@ class HiraganaTestSetup(QWidget):
                     self.global_checkbox.setCheckState(Qt.CheckState.Checked)
         self.global_checkbox.nextCheckState = global_checkbox_next_state
         self.global_checkbox.stateChanged.connect(self.on_global_checkbox_changed)
-        self.layout.addWidget(self.global_checkbox, 0, 0, alignment)
+        self.matrix.layout.addWidget(self.global_checkbox, 0, 0, alignment)
         
         self.vowel_checkboxes: list[QCheckBox] = []
         self.consonant_checkboxes: list[QCheckBox] = []
@@ -623,16 +626,19 @@ class HiraganaTestSetup(QWidget):
             checkbox = QCheckBox()
             checkbox.row = row
             self.vowel_checkboxes.append(checkbox)
-            self.layout.addWidget(checkbox, row, 0, alignment)
+            self.matrix.layout.addWidget(checkbox, row, 0, alignment)
             
         for column, consonant in enumerate(consonants, start=1):
             checkbox = QCheckBox()
             checkbox.column = column
             self.consonant_checkboxes.append(checkbox)
-            self.layout.addWidget(checkbox, 0, column, alignment)
+            self.matrix.layout.addWidget(checkbox, 0, column, alignment)
             
         def romaji_hiragana_label(romaji: str) -> QLabel:
-            label = QLabel(text=f"{romaji}\n{lang_utils.to_hiragana(romaji)}")
+            label = QLabel()
+            label.hiragana = lang_utils.to_hiragana(romaji)
+            label.romaji = romaji
+            label.setText(f"{label.hiragana}\n{label.romaji}")
             label.setAlignment(alignment)
             return label
             
@@ -640,14 +646,14 @@ class HiraganaTestSetup(QWidget):
             if (syllable := consonant + vowel) in excluded:
                 continue
             syllable = exception_dict.get(syllable, syllable)
-            self.layout.addWidget(romaji_hiragana_label(syllable), row, column, alignment)
+            self.matrix.layout.addWidget(romaji_hiragana_label(syllable), row, column, alignment)
             
         n_column = len(consonants) + 1
         checkbox = QCheckBox()
         checkbox.column = n_column
         self.consonant_checkboxes.append(checkbox)
-        self.layout.addWidget(checkbox, 0, n_column, alignment)
-        self.layout.addWidget(romaji_hiragana_label('n'), 1, n_column, alignment)
+        self.matrix.layout.addWidget(checkbox, 0, n_column, alignment)
+        self.matrix.layout.addWidget(romaji_hiragana_label('n'), 1, n_column, alignment)
         
         for checkbox in self.minor_checkboxes:
             checkbox.stateChanged.connect(self.on_minor_checkbox_changed)
@@ -681,6 +687,18 @@ class HiraganaTestSetup(QWidget):
         self.on_selection_changed()
         
     def on_selection_changed(self):
-        pass
-            
         
+        rows = [ch.row for ch in self.vowel_checkboxes if ch.isChecked()]
+        columns = [ch.column for ch in self.consonant_checkboxes[:-1] if ch.isChecked()]
+        
+        selected_hiragana = set()
+        for row, column in itertools.product(rows, columns):
+            try:
+                label = self.matrix.layout.itemAtPosition(row, column).widget()
+                selected_hiragana.add(label.hiragana)
+            except:
+                pass
+        
+        if self.vowel_checkboxes[-1].isChecked():
+            selected_hiragana.add(to_hiragana('n'))
+                       
