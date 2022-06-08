@@ -1,0 +1,12 @@
+{
+    "configurations": [
+        {
+            "name": "Python: App",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/kamishirasawa/app.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}
