@@ -1,6 +1,6 @@
 import sys
 from glob import glob
-
+    
 from PyQt6.QtGui import QFontDatabase
 from PyQt6.QtWidgets import QApplication
 

@@ -4,18 +4,18 @@ import typing
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 
-from PyQt6.QtCore import QRunnable, Qt, QThreadPool
+from PyQt6.QtCore import QRunnable, Qt, QThreadPool, QSize
 from PyQt6.QtGui import QAction, QIcon
-from PyQt6.QtWidgets import (QButtonGroup, QComboBox ,QFileDialog, QGridLayout,
+from PyQt6.QtWidgets import (QButtonGroup, QComboBox, QFileDialog, QGridLayout,
                              QHBoxLayout, QLabel, QLineEdit, QMainWindow,
-                             QMenu, QMenuBar, QPushButton, QRadioButton,
-                             QVBoxLayout, QWidget)
-
-from keine import Keine
+                             QPushButton, QRadioButton, QTableWidget,
+                             QVBoxLayout, QWidget, QTableWidgetItem, QHeaderView)
 
 import lang_utils
 from games import FlashcardGame
+from keine import DBAlreadyAttachedError, DBParseError, Keine
 from tts import tts
+from utils import Event
 
 
 class MetaQAbstractWidget(type(QWidget), type(ABC)):
@@ -28,7 +28,7 @@ class MainWindow(QMainWindow):
     def __init__(self, parent: QWidget = None, *args, **kwargs) -> None:
         super().__init__(parent, *args, **kwargs)
         self.setWindowTitle("Keine")
-        self.resize(400, 200)
+        self.resize(400, 400)
         self.keine = Keine()
         
         self.place_menubar()
@@ -38,7 +38,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.workspace)
         layout = QVBoxLayout(self.workspace)
         
-        layout.addWidget(DBManager(self, self.keine))
+        layout.addWidget(DBManager(self, self.keine), 1)
         
         self.destroyed.connect(self.keine.close_all_dbs)
         
@@ -52,6 +52,7 @@ class MainWindow(QMainWindow):
         disconnect.setDisabled(True)
         attach.triggered.connect(lambda: self.attach_db_dialog(disconnect))
         disconnect.triggered.connect(lambda: self.disconnect_all_dbs(disconnect))
+        self.keine.on_dbs_changed(lambda: disconnect.setDisabled(not any(self.keine.dbs)))
         
         filemenu.addSeparator()
         quit = filemenu.addAction("Quit")
@@ -62,31 +63,55 @@ class MainWindow(QMainWindow):
         attach = learnmenu.addAction("Hiragana")
         
     def attach_db_dialog(self, disconnect_action = QAction):
-        filename, _ = QFileDialog.getOpenFileName(
+        paths, _ = QFileDialog.getOpenFileNames(
             self,
             "Attach DB",
             os.path.dirname(__file__),
-            "All files (*.*)")
+            "Kamishirasawa DB files (*.kamidb);;All files (*.*)")
         
-        if not filename:
-            self.statusBar().showMessage(f"Cancelled DB attachment.")
-            return
-        
-        if filename in self.attached_dbs:
-            self.statusBar().showMessage(f"DB '{os.path.basename(filename)}' is already attached.")
-        else:
-            # try:
-                print(*self.keine.__dict__, sep="\n")
-                self.keine.add_db(filename)
+        if len(paths) == 1:
+            path = paths[0]
+            if not path:
+                self.statusBar().showMessage(f"Cancelled DB attachment.")
+                return
+            
+            try:
+                self.keine.attach_db(path)
+                self.statusBar().showMessage(f"Attached '{os.path.basename(path)}'.")
+            except DBAlreadyAttachedError:
+                self.statusBar().showMessage(f"DB '{os.path.basename(path)}' is already attached.")
+            except DBParseError:
+                self.statusBar().showMessage(f"Failed to parse '{os.path.basename(path)}'.")
                 
-                self.statusBar().showMessage(f"Attached '{os.path.basename(filename)}'.")
-                disconnect_action.setDisabled(False)
-            # except Exception as e:
-                # self.statusBar().showMessage(f"Failed to attach '{os.path.basename(filename)}'.")
+        else:
+            successfully_attached = []
+            already_attached = []
+            failed = []
+            for path in paths:
+                try:
+                    self.keine.attach_db(path)
+                    successfully_attached.append(path)
+                                    
+                except DBParseError:
+                    failed.append(path)
+                except DBAlreadyAttachedError:
+                    already_attached.append(path)
+                
+            message = f"Attached {len(successfully_attached)} DBs"
+            if already_attached:
+                message += f", {len(already_attached)} were already attached"
+            if failed:
+                message += f", could not parse{len(failed)} DBs"
+            message += "."
+            self.statusBar().showMessage(message)
+                
+            
+            
+        disconnect_action.setDisabled(False)
             
     def disconnect_all_dbs(self, disconnect_action = QAction):
-        if self.attached_dbs:
-            self.attached_dbs = set()
+        if self.keine.dbs:
+            self.keine.close_all_dbs()
             self.statusBar().showMessage(f"Disconnected all DBs.")
             disconnect_action.setDisabled(True)
         else:
@@ -97,14 +122,96 @@ class DBManager(QWidget):
     def __init__(self, parent: QWidget, keine: Keine, *args, **kwargs) -> None:
         super().__init__(parent, *args, **kwargs)
         
-        self.db_combobox = QComboBox(self)
-        self.keine = keine
-        self.keine.on_dbs_changed += self.update
-        self.update()
         
-    def update(self):
+        
+        layout = QVBoxLayout(self)
+        
+        self.db_selection_widget = QWidget(self)
+        self.selection_layout = QHBoxLayout(self.db_selection_widget)
+        self.db_combobox = QComboBox(self.db_selection_widget)
+        self.db_combobox.currentIndexChanged.connect(self.redraw_voc_table)
+        detach_button = QPushButton(icon=QIcon("./icons/detach.png"))
+        detach_button.setFixedSize(32, 32)
+        detach_button.clicked.connect(lambda: self.keine.detach_db(self.db_combobox.currentData()))
+        self.selection_layout.addWidget(self.db_combobox, 1)
+        self.selection_layout.addWidget(detach_button, 0)
+        
+        layout.addWidget(self.db_selection_widget)
+        
+        self.place_table()
+        self.redraw_voc_table()
+        
+        self.db_edit_widget = QWidget(self)
+        edit_layout = QHBoxLayout(self.db_edit_widget)
+        self.db_delete_voc = QPushButton(text="Remove selected")
+        self.db_add_voc = QPushButton(text="Add new")
+        edit_layout.addWidget(self.db_delete_voc)        
+        edit_layout.addWidget(self.db_add_voc)
+        
+        layout.addWidget(self.db_edit_widget)
+        
+        
+        self.keine = keine
+        self.dbs = set()
+        self.keine.on_dbs_changed += self.update_db_selector
+        self.update_db_selector()
+        
+    def place_table(self):
+        self.voc_table = QTableWidget()
+        self.voc_table.setColumnCount(3)
+        
+        self.voc_table.setHorizontalHeaderLabels(["Word", "Meaning", "Categories"])
+        header = self.voc_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+
+        self.layout().addWidget(self.voc_table)
+        
+    def update_db_selector(self):
+        last_db = self.db_combobox.currentData()
         self.db_combobox.clear()
-        self.db_combobox.addItems(db.path for db in self.keine.dbs)
+        
+        match list(self.keine.dbs):
+            case []:
+                self.db_selection_widget.setDisabled(True)
+            case [db]:
+                self.db_combobox.addItem(os.path.basename(db.path), db)
+                self.db_selection_widget.setDisabled(False)
+                self.db_combobox.setCurrentIndex(0)
+
+            case dbs:
+                commonpath_length = len(os.path.commonpath([db.path for db in dbs]))
+                current_index = 0
+                for i, db in enumerate(dbs):
+                    print(f"{db = }")
+                    self.db_combobox.addItem(db.path[commonpath_length + 1:], db)
+                    if db == last_db:
+                        current_index = i
+                        
+                self.db_combobox.setCurrentIndex(current_index)
+                self.db_selection_widget.setDisabled(False)           
+            
+                
+    def redraw_voc_table(self):  
+        self.voc_table.clearContents()
+        header = self.voc_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        
+        
+        if self.db_combobox.currentIndex() != -1:
+            vocs = self.db_combobox.currentData().vocs
+            
+            self.voc_table.setRowCount(len(vocs))
+            for row, voc in enumerate(vocs):
+                for column, x in enumerate([voc.word, ", ".join(voc.meaning), ", ".join(voc.categories)]):
+                    item = QTableWidgetItem(x)
+                    self.voc_table.setItem(row, column, item)
+            
+            self.voc_table.resizeColumnsToContents()
+            self.voc_table.resizeRowsToContents()
+        else:
+            self.voc_table.setRowCount(0)
 
 
 class KanjiKanaLabel(QWidget):

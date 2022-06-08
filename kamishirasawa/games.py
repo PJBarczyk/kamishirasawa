@@ -12,11 +12,7 @@ from typing import Any, Iterable, Sequence
 class Voc:
     word: str
     meaning: list[str]
-    grade: int | None
     categories: list[str]
-    
-    def __post_init__(self) -> None:
-        self.grade = int(self.grade) if self.grade else None
     
     @classmethod
     def get_from_json(cls, path: str) -> list:        
