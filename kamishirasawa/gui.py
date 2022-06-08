@@ -4,20 +4,21 @@ import random
 import typing
 from abc import ABC, abstractmethod
 from enum import Enum, auto
+from functools import partial
 
 from PyQt6.QtCore import QRunnable, Qt, QThreadPool
 from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QFileDialog,
-                             QGridLayout, QHBoxLayout, QHeaderView, QLabel,
-                             QLineEdit, QMainWindow, QPushButton, QRadioButton,
-                             QTableWidget, QTableWidgetItem, QVBoxLayout,
-                             QWidget)
-from lang_utils import to_hiragana
+                             QFormLayout, QGridLayout, QHBoxLayout,
+                             QHeaderView, QLabel, QLineEdit, QMainWindow,
+                             QPushButton, QRadioButton, QSpinBox, QTableWidget,
+                             QTableWidgetItem, QVBoxLayout, QWidget)
 
 import lang_utils
 import utils
-from games import FlashcardGame, Voc
+from games import FlashcardGame, TupleFlashcardGame, Voc
 from keine import DB, DBAlreadyAttachedError, DBParseError, Keine
+from lang_utils import to_hiragana, to_romaji
 from tts import tts
 
 
@@ -37,13 +38,9 @@ class MainWindow(QMainWindow):
         
         self.place_menubar()
         self.attached_dbs = set()
-                
-        self.workspace = QWidget()
-        self.setCentralWidget(self.workspace)
-        layout = QVBoxLayout(self.workspace)
         
-        layout.addWidget(DBManager(self, self.keine), 1)
-        layout.addWidget(HiraganaTestSetup(self), 1)
+        self.replace_central_widget(DBManager(self, self.keine))
+        self.replace_central_widget(HiraganaTestSetupWidget(self))
         
         self.statusbar = self.statusBar()
         
@@ -69,8 +66,10 @@ class MainWindow(QMainWindow):
         quit.triggered.connect(self.close)
         quit.setShortcut("Ctrl+Q")
 
-        learnmenu = menubar.addMenu("Learn")
-        attach = learnmenu.addAction("Hiragana")
+        self.learnmenu = menubar.addMenu("Learn")
+        self.keine.dbs_lock.add_on_write(lambda b: self.learnmenu.setDisabled(b))
+        hiragana = self.learnmenu.addAction("Hiragana")
+        hiragana.triggered.connect(lambda: self.replace_central_widget(HiraganaTestSetupWidget()))
         
     def attach_db_dialog(self, disconnect_action = QAction):
         paths, _ = QFileDialog.getOpenFileNames(
@@ -126,6 +125,13 @@ class MainWindow(QMainWindow):
             disconnect_action.setDisabled(True)
         else:
             self.statusbar.showMessage(f"No DBs are attached.")
+
+    def replace_central_widget(self, widget: QWidget) -> None:
+        try:
+            self.centralWidget().deleteLater()
+        except:
+            pass
+        self.setCentralWidget(widget)
 
 class DBManager(QWidget):
     list_attribute_delimiters = [",", ";"]
@@ -198,28 +204,29 @@ class DBManager(QWidget):
         self.layout().addWidget(self.voc_table)
         
     def update_db_selector(self):
-        last_db = self.db_combobox.currentData()
-        self.db_combobox.clear()
-        
-        match list(self.keine.dbs):
-            case []:
-                self.db_selection_widget.setDisabled(True)
-            case [db]:
-                self.db_combobox.addItem(os.path.basename(db.path), db)
-                self.db_selection_widget.setDisabled(False)
-                self.db_combobox.setCurrentIndex(0)
+        if self.db_combobox:
+            last_db = self.db_combobox.currentData()
+            self.db_combobox.clear()
+            
+            match list(self.keine.dbs):
+                case []:
+                    self.db_selection_widget.setDisabled(True)
+                case [db]:
+                    self.db_combobox.addItem(os.path.basename(db.path), db)
+                    self.db_selection_widget.setDisabled(False)
+                    self.db_combobox.setCurrentIndex(0)
 
-            case dbs:
-                commonpath_length = len(os.path.commonpath([db.path for db in dbs]))
-                current_index = 0
-                for i, db in enumerate(dbs):
-                    self.db_combobox.addItem(db.path[commonpath_length + 1:], db)
-                    if db == last_db:
-                        current_index = i
-                        
-                self.db_combobox.setCurrentIndex(current_index)
-                self.db_selection_widget.setDisabled(False)
-    
+                case dbs:
+                    commonpath_length = len(os.path.commonpath([db.path for db in dbs]))
+                    current_index = 0
+                    for i, db in enumerate(dbs):
+                        self.db_combobox.addItem(db.path[commonpath_length + 1:], db)
+                        if db == last_db:
+                            current_index = i
+                            
+                    self.db_combobox.setCurrentIndex(current_index)
+                    self.db_selection_widget.setDisabled(False)
+        
     def on_selected_db_changed(self, index: typing.SupportsIndex):
         self.selected_db: DB = self.db_combobox.itemData(index, Qt.ItemDataRole.UserRole)
         self.redraw_voc_table()
@@ -425,12 +432,12 @@ class FlashcardGameWidget(QAbstractWidget):
         question_widget_layout.addWidget(self.question_label)   
         question_widget_layout.addWidget(self.tts_button)
         
-        layout = QVBoxLayout(self)
-        layout.addWidget(r1, alignment=Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(r2, alignment=Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(r3, alignment=Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(question_widget, alignment=Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.create_input_widget(), alignment=Qt.AlignmentFlag.AlignCenter)
+        self.layout = QVBoxLayout(self)
+        self.layout.addWidget(r1, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.layout.addWidget(r2, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.layout.addWidget(r3, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.layout.addWidget(question_widget, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.layout.addWidget(self.create_input_widget(), alignment=Qt.AlignmentFlag.AlignCenter)
                 
     @abstractmethod
     def create_input_widget(self) -> QWidget:
@@ -445,6 +452,11 @@ class FlashcardGameWidget(QAbstractWidget):
     def on_new_question(self) -> None:
         self.question_label.setText(self.game.question)
    
+    def finish(self) -> None:
+        label = QLabel(f"That's all! Congrats'!\n{lang_utils.kaomoji.joy()}")
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.main_window.replace_central_widget(label)
+    
 class TextInputFlashcardGameWidget(FlashcardGameWidget):
     def create_input_widget(self) -> QWidget:
         input_widget = QWidget()
@@ -485,6 +497,9 @@ class TextInputFlashcardGameWidget(FlashcardGameWidget):
                     self.on_incorrect_answer()
                     
             case self.State.GIVING_FEEDBACK:
+                if self.game.is_done:
+                    self.finish()
+                
                 self.state = self.State.READING_ANSWER
                 
                 self.answer_input.setDisabled(False)
@@ -561,6 +576,12 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
                     
                     
             case self.State.GIVING_FEEDBACK:
+                if self.game.is_done:
+                    self.finish()
+                    return
+                    
+                print(self.game.active)
+                
                 self.state = self.State.READING_ANSWER
                 
                 for button in self.answer_buttons:
@@ -570,9 +591,89 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
                 self.feedback_label.setText("")
                 
                 self.on_new_question()
-                
-                
-class HiraganaTestSetup(QWidget):
+
+class FlashcardGameSetupWidget(QAbstractWidget):
+    def __init__(self, data_source: typing.Iterable, main_window: MainWindow, parent: QWidget = None, *args, **kwargs) -> None:
+        super().__init__(parent=parent, *args, **kwargs)
+        self.parent = parent
+        self.main_window = main_window
+        self.layout = QFormLayout(self)
+        self.data_source = data_source
+        self.game_widget_type = None
+        
+        self.total_flashcards_label = QLabel()
+        self.layout.addRow("Total flashcards:", self.total_flashcards_label)
+        
+        self.passes_spinbox = QSpinBox(self)
+        self.passes_spinbox.setMinimum(1)
+        self.layout.addRow("Correct guesses needed:", self.passes_spinbox)
+        
+        self.place_gamemode_select_widget()
+        
+        self.play_button = QPushButton("Play")
+        self.play_button.clicked.connect(self.play)
+        self.layout.addRow(self.play_button)
+        
+        self.update()
+        
+    def update(self):
+        total_flashcards = len(self.data_source)
+        
+        self.total_flashcards_label.setText(str())
+        self.play_button.setDisabled(not bool(total_flashcards))
+        
+    def place_gamemode_select_widget(self):
+        gamemode_select = QWidget(self)
+        gamemode_select.layout = QVBoxLayout(gamemode_select)
+        self.layout.addRow("Gamemode", gamemode_select)
+        
+        choice_radio_button = QRadioButton("Choice")
+        choice_radio_button.game_widget_type = ChoiceFlashcardGameWidget
+        gamemode_select.layout.addWidget(choice_radio_button)
+        
+        text_input_radio_button = QRadioButton("Text input")
+        text_input_radio_button.game_widget_type = TextInputFlashcardGameWidget
+        gamemode_select.layout.addWidget(text_input_radio_button)
+        
+        register_toggled_callback = lambda rb: rb.toggled.connect(lambda: self.on_gamemode_selected(rb.game_widget_type))
+        for rb in (choice_radio_button, text_input_radio_button):
+            register_toggled_callback(rb)
+        
+        self.choices_spinbox = QSpinBox()
+        self.choices_spinbox.setMinimum(2)
+        self.choices_spinbox.setMaximum(10)
+        self.choices_spinbox.label = QLabel("Choices per question", self)
+        self.layout.addRow(self.choices_spinbox.label, self.choices_spinbox)
+        
+        choice_radio_button.setChecked(True)
+        
+    def on_gamemode_selected(self, game_widget_type):
+        self.game_widget_type = game_widget_type
+        
+        self.choices_spinbox.setVisible(game_widget_type == ChoiceFlashcardGameWidget) 
+        self.choices_spinbox.label.setVisible(game_widget_type == ChoiceFlashcardGameWidget)
+        
+    def get_game_widget(self, game: FlashcardGame) -> QWidget:
+        print(self.game_widget_type)
+        if self.game_widget_type is TextInputFlashcardGameWidget:
+            return TextInputFlashcardGameWidget(game)
+        if self.game_widget_type is ChoiceFlashcardGameWidget:
+            return ChoiceFlashcardGameWidget(game, choices=self.choices_spinbox.value())
+    
+    @abstractmethod
+    def play(self):
+        pass
+                          
+class HiraganaTestSetupWidget(QWidget):
+    class HiraganaFlashcardGameSetupWidget(FlashcardGameSetupWidget):
+        def play(self):
+            tuples = [(hiragana, to_romaji(hiragana)) for hiragana in self.data_source]
+            
+            game_widget = self.get_game_widget(TupleFlashcardGame(tuples, self.passes_spinbox.value()))
+            game_widget.main_window = self.main_window
+            print(game_widget)
+            self.main_window.replace_central_widget(game_widget)
+    
     @property
     def minor_checkboxes(self):
         return self.vowel_checkboxes + self.consonant_checkboxes
@@ -580,12 +681,15 @@ class HiraganaTestSetup(QWidget):
     def __init__(self, parent: QWidget =  None, *args, **kwargs) -> None:
         super().__init__(parent, *args, **kwargs)
         self.parent = parent
+        self.selected_hiragana = set()
         
-        self.layout = QHBoxLayout(self)
+        self.layout = QVBoxLayout(self)
         
         self.place_matrix()
         
-        self.selected_hiragana = {}
+        self.game_setup_widget = self.HiraganaFlashcardGameSetupWidget(self.selected_hiragana, self.parent)
+        
+        self.layout.addWidget(self.game_setup_widget)
         
         
     def place_matrix(self):
@@ -596,7 +700,7 @@ class HiraganaTestSetup(QWidget):
         vowels = ['a', 'i', 'u', 'e', 'o']
         consonants = ['', 'k', 's', 't', 'n', 'h', 'm', 'y', 'r', 'w']
         
-        excluded = {"yi", "ye", "wu"}
+        excluded = {"yi", "ye", "wi", "wu", "we"}
         exception_dict = {
             "si": "shi",
             "hu": "fu",
@@ -691,14 +795,16 @@ class HiraganaTestSetup(QWidget):
         rows = [ch.row for ch in self.vowel_checkboxes if ch.isChecked()]
         columns = [ch.column for ch in self.consonant_checkboxes[:-1] if ch.isChecked()]
         
-        selected_hiragana = set()
+        self.selected_hiragana.clear()
         for row, column in itertools.product(rows, columns):
             try:
                 label = self.matrix.layout.itemAtPosition(row, column).widget()
-                selected_hiragana.add(label.hiragana)
+                self.selected_hiragana.add(label.hiragana)
             except:
                 pass
         
-        if self.vowel_checkboxes[-1].isChecked():
-            selected_hiragana.add(to_hiragana('n'))
+        if self.consonant_checkboxes[-1].isChecked():
+            self.selected_hiragana.add(to_hiragana('n'))
+            
+        self.game_setup_widget.update()
                        

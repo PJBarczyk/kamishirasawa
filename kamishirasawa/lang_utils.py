@@ -1,4 +1,5 @@
 from collections import defaultdict
+import random
 from typing import Dict, Tuple
 import pykakasi
 import romkan
@@ -40,3 +41,18 @@ def furigana(text: str) -> Tuple[str, str]:
             tuples.append((hira[:-i], None))
     
     return tuples
+
+class kaomoji:
+    @staticmethod
+    def joy():
+        return random.choice([
+            "＼(≧▽≦)／",
+            "☆*:.｡.o(≧▽≦)o.｡.:*☆",
+            "٩(◕‿◕｡)۶",
+            "(⌒▽⌒)☆",
+            "☆ ～('▽^人)",
+            "°˖✧◝(⁰▿⁰)◜✧˖°",
+            "(*￣▽￣)b",
+            "ヽ(>∀<☆)ノ",
+            "(´｡• ω •｡`)",
+        ])

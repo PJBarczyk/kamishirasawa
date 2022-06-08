@@ -29,7 +29,7 @@ class FlashcardGame(ABC):
         assert passes_per_flashcard >= 1
 
         self.active, self.passed = list(flashcards), []
-        random.shuffle(flashcards)
+        random.shuffle(self.active)
         
         self.total_count = len(self.active)
         self.passes_per_flashcard = passes_per_flashcard
@@ -49,13 +49,12 @@ class FlashcardGame(ABC):
     
     def mark_as_correct(self) -> None:
         self.passes_done_dict[self._current] = self.passes_done_dict[self._current] + 1
-        print(f"{self._current.word}: {self.passes_per_flashcard - self.passes_done_dict[self._current]} left")  
               
         if (passes := self.passes_done_dict[self._current]) < self.passes_per_flashcard:
             self.__insert_flashcard(self.active.pop(0), passes)            
         
         else:
-            self.active.pop()
+            self.passed.append(self.active.pop(0))
             
     def mark_as_incorrect(self) -> None:
         self.passes_done_dict[self._current] = max(0, self.passes_done_dict[self._current] - 1)
@@ -64,7 +63,7 @@ class FlashcardGame(ABC):
     
     @property
     def is_done(self) -> bool:
-        return any(self.active)
+        return not self.active
     
     @property
     def _current(self) -> Voc:
@@ -84,7 +83,17 @@ class FlashcardGame(ABC):
         ...
        
     def sample_incorrect_answers(self, k) -> list[str]:
-        return [self._formatted_answer_of(flashcard) for flashcard in random.sample(self.active, k)]
+        sample = random.sample(self.active[1:], min(len(self.active) - 1, k))
+        
+        if len(sample) < k:  # Not enough flashcards in active deck
+            k_left = k - len(sample)
+            sample += random.sample(self.passed, min(len(self.passed), k_left))
+            
+            if len(sample) < k:  # Game contains less cards than set choice count
+                sample = random.choices(self.active + self.passed, k=k)
+
+        return [self._formatted_answer_of(flashcard) for flashcard in sample]
+            
 
 class JaToEnGame(FlashcardGame):
     def check_answer(self, answer: str) -> bool:
@@ -97,18 +106,14 @@ class JaToEnGame(FlashcardGame):
     def _formatted_answer_of(self, flashcard: Any):
         return ", ".join(flashcard.meaning)
 
-class EnumFlashcardGame(FlashcardGame):
+class TupleFlashcardGame(FlashcardGame):
     def check_answer(self, answer: str) -> bool:
-        try:
-            return answer == self._current[0]
-        except TypeError:
-            return False
+        return answer == self._current[1]
 
     @property
     def question(self) -> str:
         return self._current[0]
     
-    @abstractproperty
     def _formatted_answer_of(self, flashcard: Any):
         return flashcard[1]
         
