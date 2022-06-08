@@ -137,6 +137,7 @@ class DBManager(QWidget):
         self.keine = keine
         self.selected_db = None
         self.keine.on_dbs_changed += self.update_db_selector
+        self.keine.on_dbs_changed += lambda: self.db_edit_widget.setEnabled(len(self.keine.dbs) > 0)
         
         layout = QVBoxLayout(self)
         
@@ -150,8 +151,10 @@ class DBManager(QWidget):
         self.db_delete_voc = QPushButton(text="Remove selected")
         self.db_delete_voc.clicked.connect(self.remove_item)
         self.db_add_voc = QPushButton(text="Add new")
+        self.db_add_voc.clicked.connect(self.add_item)
         edit_layout.addWidget(self.db_delete_voc)        
         edit_layout.addWidget(self.db_add_voc)
+        self.db_edit_widget.setDisabled(True)
         
         layout.addWidget(self.db_edit_widget)
         
@@ -233,6 +236,14 @@ class DBManager(QWidget):
                 self.voc_table.removeRow(row)
             self.save_changes_widget.setEnabled(True)
 
+    def add_item(self):
+        self.keine.dbs_lock.value = True
+        count = self.voc_table.rowCount()
+        self.voc_table.setRowCount(count + 1)
+        self.set_voc(count, Voc("-", ["-"], ["-"]))
+        self.voc_table.scrollToBottom()
+        self.save_changes_widget.setEnabled(True)
+
     def on_item_selected(self, item: QTableWidgetItem):
         print(f"Selected '{item.text()}'({item.row()}, {item.column()})")
         self.last_selected_text = item.text()
@@ -268,7 +279,15 @@ class DBManager(QWidget):
         
         self.voc_table.blockSignals(False)
             
-                
+    def set_voc(self, row: int, voc: Voc):
+        delimiter = self.list_attribute_delimiters[0]
+        for column, (text, data) in enumerate([(voc.word, voc.word),
+                                                (delimiter.join(voc.meaning), voc.meaning),
+                                                (delimiter.join(voc.categories), voc.categories)]):
+            item = QTableWidgetItem(text)
+            item.setData(Qt.ItemDataRole.UserRole, data)
+            self.voc_table.setItem(row, column, item)
+
     def redraw_voc_table(self):  
         self.voc_table.model().blockSignals(True)
         self.voc_table.clearContents()
@@ -284,15 +303,8 @@ class DBManager(QWidget):
             vocs = self.selected_db.read_data()
             
             self.voc_table.setRowCount(len(vocs))
-            delimiter = self.list_attribute_delimiters[0]
             for row, voc in enumerate(vocs):
-                for column, (text, data) in enumerate([(voc.word, voc.word), 
-                                                       (delimiter.join(voc.meaning), voc.meaning),
-                                                       (delimiter.join(voc.categories), voc.categories)]):
-                    item = QTableWidgetItem(text)
-                    item.setData(Qt.ItemDataRole.UserRole, data)
-                    self.voc_table.setItem(row, column, item)
-            
+                self.set_voc(row, voc)
             self.voc_table.resizeRowsToContents()
         else:
             self.voc_table.setRowCount(0)
