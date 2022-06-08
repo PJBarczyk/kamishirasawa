@@ -57,6 +57,10 @@ class MainWindow(QMainWindow):
         attach.setShortcut("Ctrl+Shift+A")
         attach.triggered.connect(lambda: self.attach_db_dialog(disconnect))
         
+        create = filemenu.addAction("Create a new DB")
+        create.setShortcut("Ctrl+Shift+N")
+        create.triggered.connect(lambda: self.create_db_dialog(disconnect))
+
         disconnect = filemenu.addAction("Disconnect all DBs")
         disconnect.triggered.connect(lambda: self.disconnect_all_dbs(disconnect))
         disconnect.setDisabled(True)
@@ -71,13 +75,15 @@ class MainWindow(QMainWindow):
 
         learnmenu = menubar.addMenu("Learn")
         attach = learnmenu.addAction("Hiragana")
+
+    DB_FILE_FILTER = "Kamishirasawa DB files (*.kamidb);;All files (*.*)"
         
     def attach_db_dialog(self, disconnect_action = QAction):
         paths, _ = QFileDialog.getOpenFileNames(
             self,
             "Attach DB",
             os.path.dirname(__file__),
-            "Kamishirasawa DB files (*.kamidb);;All files (*.*)")
+            self.DB_FILE_FILTER)
         
         if len(paths) == 1:
             path = paths[0]
@@ -118,7 +124,21 @@ class MainWindow(QMainWindow):
             
             
         disconnect_action.setDisabled(False)
-            
+
+    def create_db_dialog(self, disconnect_action = QAction):
+
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Create DB",
+            os.path.dirname(__file__),
+            self.DB_FILE_FILTER)
+
+        if path:
+            try:
+                self.keine.create_db(path)
+            except:
+                self.statusbar.showMessage(f"Failed to create the DB.")
+
     def disconnect_all_dbs(self, disconnect_action = QAction):
         if self.keine.dbs:
             self.keine.close_all_dbs()
@@ -311,8 +331,6 @@ class DBManager(QWidget):
 
         self.voc_table.model().blockSignals(False)
         self.voc_table.model().layoutChanged.emit()
-        
-
         
     def save_changes(self):
         assert self.keine.dbs_lock
