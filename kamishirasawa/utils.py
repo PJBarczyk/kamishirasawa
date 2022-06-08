@@ -1,4 +1,4 @@
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
 class Event:
     def __init__(self) -> None:
@@ -42,3 +42,10 @@ class ObservableFlag:
 
     def __bool__(self):
         return self.__value
+    
+    
+def multi_split(s: str, seps: Iterable[str]):
+    list_of_splits = [s]
+    for sep in seps:
+        list_of_splits = [s for ss in list_of_splits for s in ss.split(sep)]
+    return list_of_splits

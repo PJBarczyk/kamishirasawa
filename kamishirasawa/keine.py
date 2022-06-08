@@ -1,9 +1,40 @@
+from io import StringIO
 import json
 import os
+import shutil
+from typing import Iterable
 
 from games import Voc
 from utils import Event, ObservableFlag
 
+
+class DBParseError(Exception):
+    pass
+
+class DBAlreadyAttachedError(Exception):
+    pass
+
+class DB:
+    def __init__(self, path) -> None:
+        try:
+            self.file = open(path, 'a+')
+            self.path = os.path.normpath(path)
+            
+        except AttributeError as e:
+            self.close()
+            raise DBParseError(" .".join(e.args))
+        
+    def read_data(self) -> Iterable[Voc]:
+        self.file.seek(0)
+        return json.load(self.file, object_hook=lambda kwargs: Voc(**kwargs))
+    
+    def clear_and_write_data(self, data: Iterable[Voc]) -> None:
+        self.file.truncate(0)
+        json.dump([d.__dict__ for d in data], self.file, indent=4)
+        
+    def close(self):
+        self.file.close()
+        
 
 class Keine:
     def __init__(self) -> None:
@@ -19,10 +50,17 @@ class Keine:
             raise DBAlreadyAttachedError("DB is already attached.")
         
         db = DB(path)
-        self.dbs.add(db)
-        self.on_dbs_changed()
+        try:
+            db.read_data()
+            
+            self.dbs.add(db)
+            self.on_dbs_changed()
+        except Exception as e:
+            db.close()
+            raise DBParseError(*e.args)
         
-    def detach_db(self, db) -> None:
+    def detach_db(self, db: DB) -> None:
+        db.close()
         self.dbs.remove(db)
         self.on_dbs_changed()
         
@@ -31,23 +69,3 @@ class Keine:
             db.close()
         self.dbs.clear()
         self.on_dbs_changed()
-
-class DBParseError(Exception):
-    pass
-
-class DBAlreadyAttachedError(Exception):
-    pass
-
-class DB:
-    def __init__(self, path) -> None:
-        try:
-            self.file = open(path, 'r+')
-            self.path = os.path.normpath(path)
-            self.vocs: set[Voc] = json.load(self.file, object_hook=lambda kwargs: Voc(**kwargs))
-            
-        except AttributeError as e:
-            self.close()
-            raise DBParseError(" .".join(e.args))
-        
-    def close(self):
-        self.file.close()

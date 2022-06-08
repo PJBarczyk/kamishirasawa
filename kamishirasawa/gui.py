@@ -5,7 +5,8 @@ import typing
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 
-from PyQt6.QtCore import QRunnable, Qt, QThreadPool, QSize
+
+from PyQt6.QtCore import QRunnable, Qt, QThreadPool, QAbstractItemModel
 from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QFileDialog, QGridLayout,
                              QHBoxLayout, QLabel, QLineEdit, QMainWindow,
@@ -15,10 +16,12 @@ from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QFileDialog, QG
 from utils import ObservableFlag
 
 import lang_utils
-from games import FlashcardGame
-from keine import DBAlreadyAttachedError, DBParseError, Keine
+from games import FlashcardGame, Voc
+from keine import DBAlreadyAttachedError, DBParseError, Keine, DB
 from tts import tts
 from utils import Event
+import utils
+from tqdm import tqdm
 
 
 class MetaQAbstractWidget(type(QWidget), type(ABC)):
@@ -26,6 +29,7 @@ class MetaQAbstractWidget(type(QWidget), type(ABC)):
 
 class QAbstractWidget(QWidget, ABC, metaclass=MetaQAbstractWidget):
     pass
+
 
 class MainWindow(QMainWindow):
     def __init__(self, parent: QWidget = None, *args, **kwargs) -> None:
@@ -41,8 +45,10 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.workspace)
         layout = QVBoxLayout(self.workspace)
         
-        # layout.addWidget(DBManager(self, self.keine), 1)
-        layout.addWidget(HiraganaTestSetup(self), 1)
+        layout.addWidget(DBManager(self, self.keine), 1)
+        # layout.addWidget(HiraganaTestSetup(self), 1)
+        
+        self.statusbar = self.statusBar()
         
         self.destroyed.connect(self.keine.close_all_dbs)
         
@@ -79,16 +85,16 @@ class MainWindow(QMainWindow):
         if len(paths) == 1:
             path = paths[0]
             if not path:
-                self.statusBar().showMessage(f"Cancelled DB attachment.")
+                self.statusbar.showMessage(f"Cancelled DB attachment.")
                 return
             
             try:
                 self.keine.attach_db(path)
-                self.statusBar().showMessage(f"Attached '{os.path.basename(path)}'.")
+                self.statusbar.showMessage(f"Attached '{os.path.basename(path)}'.")
             except DBAlreadyAttachedError:
-                self.statusBar().showMessage(f"DB '{os.path.basename(path)}' is already attached.")
+                self.statusbar.showMessage(f"DB '{os.path.basename(path)}' is already attached.")
             except DBParseError:
-                self.statusBar().showMessage(f"Failed to parse '{os.path.basename(path)}'.")
+                self.statusbar.showMessage(f"Failed to parse '{os.path.basename(path)}'.")
                 
         else:
             successfully_attached = []
@@ -110,7 +116,7 @@ class MainWindow(QMainWindow):
             if failed:
                 message += f", could not parse{len(failed)} DBs"
             message += "."
-            self.statusBar().showMessage(message)
+            self.statusbar.showMessage(message)
                 
             
             
@@ -119,18 +125,20 @@ class MainWindow(QMainWindow):
     def disconnect_all_dbs(self, disconnect_action = QAction):
         if self.keine.dbs:
             self.keine.close_all_dbs()
-            self.statusBar().showMessage(f"Disconnected all DBs.")
+            self.statusbar.showMessage(f"Disconnected all DBs.")
             disconnect_action.setDisabled(True)
         else:
-            self.statusBar().showMessage(f"No DBs are attached.")
-
+            self.statusbar.showMessage(f"No DBs are attached.")
 
 class DBManager(QWidget):
+    list_attribute_delimiters = [",", ";"]
+    
     def __init__(self, parent: QWidget, keine: Keine, *args, **kwargs) -> None:
         super().__init__(parent, *args, **kwargs)
+        self.parent = parent
         
         self.keine = keine
-        self.dbs = set()
+        self.selected_db = None
         self.keine.on_dbs_changed += self.update_db_selector
         
         layout = QVBoxLayout(self)
@@ -157,7 +165,7 @@ class DBManager(QWidget):
         selection_layout = QHBoxLayout(self.db_selection_widget)
         
         self.db_combobox = QComboBox(self.db_selection_widget)
-        self.db_combobox.currentIndexChanged.connect(self.redraw_voc_table)
+        self.db_combobox.currentIndexChanged.connect(self.on_selected_db_changed)
         detach_button = QPushButton(icon=QIcon("./icons/detach.png"))
         detach_button.setFixedSize(32, 32)
         detach_button.clicked.connect(lambda: self.keine.detach_db(self.db_combobox.currentData()))
@@ -167,7 +175,6 @@ class DBManager(QWidget):
         self.layout().addWidget(self.db_selection_widget)
         
         self.keine.dbs_lock.add_on_write(lambda b: self.db_selection_widget.setDisabled(b))
-        
         
     def place_save_changes_widget(self):
         self.save_changes_widget = QWidget()
@@ -185,17 +192,11 @@ class DBManager(QWidget):
         self.keine.dbs_lock.add_on_write(lambda b: self.save_changes_widget.setDisabled(not b))
         self.save_changes_widget.setDisabled(True)
         
-        
     def place_table(self):
         self.voc_table = QTableWidget()
         self.voc_table.setColumnCount(3)
-        self.voc_table.itemActivated.connect(self.on_item_selected)
+        self.voc_table.itemClicked.connect(self.on_item_selected)
         self.voc_table.itemChanged.connect(self.on_item_changed)
-        
-        self.voc_table.setHorizontalHeaderLabels(["Word", "Meaning", "Categories"])
-        header = self.voc_table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
         self.layout().addWidget(self.voc_table)
         
@@ -215,68 +216,106 @@ class DBManager(QWidget):
                 commonpath_length = len(os.path.commonpath([db.path for db in dbs]))
                 current_index = 0
                 for i, db in enumerate(dbs):
-                    print(f"{db = }")
                     self.db_combobox.addItem(db.path[commonpath_length + 1:], db)
                     if db == last_db:
                         current_index = i
                         
                 self.db_combobox.setCurrentIndex(current_index)
-                self.db_selection_widget.setDisabled(False)      
+                self.db_selection_widget.setDisabled(False)
+    
+    def on_selected_db_changed(self, index: typing.SupportsIndex):
+        self.selected_db: DB = self.db_combobox.itemData(index, Qt.ItemDataRole.UserRole)
+        self.redraw_voc_table()
         
     def on_item_selected(self, item: QTableWidgetItem):
-        pass
+        print(f"Selected '{item.text()}'({item.row()}, {item.column()})")
+        self.last_selected_text = item.text()
                 
     def on_item_changed(self, item: QTableWidgetItem):
-        item.setText(item.text().strip())
-        
-        def validate(self, item: QTableWidgetItem):
-            text = item.text()
+        text = item.text().strip()
+      
+        self.voc_table.blockSignals(True)
+        try:
             match item.column():
                 case 0:
-                    return bool(text)
+                    if not text:
+                        raise ValueError("Field 'Word' cannot be empty")
+                    data = text
                 case 1:
-                    pass
+                    meanings = list({s.strip().lower(): None for s in utils.multi_split(text, self.list_attribute_delimiters) if s})
+                    if not meanings:
+                        raise ValueError("Field 'Meaning' cannot be empty")
+                    text = (self.list_attribute_delimiters[0] + " ").join(meanings)
+                    data = meanings
                 case 2:
-                    pass
+                    categories = list({s.strip().upper(): None for s in utils.multi_split(text, self.list_attribute_delimiters) if s})
+                    text = (self.list_attribute_delimiters[0] + " ").join(categories)
+                    data = categories
+
+            item.setText(text)
+            item.setData(Qt.ItemDataRole.UserRole, data)
+            self.keine.dbs_lock.value = True
+            
+        except ValueError as e:
+            self.parent.statusbar.showMessage(". ".join(e.args))
+            item.setText(self.last_selected_text)
+        
+        self.voc_table.blockSignals(False)
             
                 
     def redraw_voc_table(self):  
+        self.voc_table.model().blockSignals(True)
         self.voc_table.clearContents()
-        self.voc_table.blockSignals(True)
+        self.voc_table.setColumnCount(3)
+        
+        self.voc_table.setHorizontalHeaderLabels(["Word", "Meaning", "Categories"])
         header = self.voc_table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         
         
-        if self.db_combobox.currentIndex() != -1:
-            vocs = self.db_combobox.currentData().vocs
+        if self.selected_db:
+            vocs = self.selected_db.read_data()
             
             self.voc_table.setRowCount(len(vocs))
-            for row, voc in enumerate(vocs):
-                for column, x in enumerate([voc.word, ", ".join(voc.meaning), ", ".join(voc.categories)]):
-                    item = QTableWidgetItem(x)
+            delimiter = self.list_attribute_delimiters[0]
+            for row, voc in tqdm(enumerate(vocs)):
+                for column, (text, data) in enumerate([(voc.word, voc.word), 
+                                                       (delimiter.join(voc.meaning), voc.meaning),
+                                                       (delimiter.join(voc.categories), voc.categories)]):
+                    item = QTableWidgetItem(text)
+                    item.setData(Qt.ItemDataRole.UserRole, data)
                     self.voc_table.setItem(row, column, item)
             
-            self.voc_table.resizeColumnsToContents()
             self.voc_table.resizeRowsToContents()
         else:
             self.voc_table.setRowCount(0)
 
-        self.voc_table.blockSignals(False)
+        self.voc_table.model().blockSignals(False)
+        self.voc_table.model().layoutChanged.emit()
+        
+
         
     def save_changes(self):
         assert self.keine.dbs_lock
         
-        self.voc_table.items()
+        vocs = []
+        for row in range(self.voc_table.rowCount()):
+            [word, meaning, categories] = [self.voc_table.item(row, column).data(Qt.ItemDataRole.UserRole) for column in range(3)]
+            print(word, meaning, categories)
+            vocs.append(Voc(word, meaning, categories))
+            
+        self.selected_db.clear_and_write_data(vocs)
         
+        self.redraw_voc_table()
         self.keine.dbs_lock.value = False
         
     def revert_changes(self):
         assert self.keine.dbs_lock
         
         self.redraw_voc_table()
-        
         self.keine.dbs_lock.value = False
+
 
 class KanjiKanaLabel(QWidget):
     class Mode(Enum):
@@ -332,7 +371,6 @@ class KanjiKanaLabel(QWidget):
         self.mode = mode
         self.setText(self.__text)
     
-        
 class TTSButton(QPushButton):    
     class TTSRunnable(QRunnable):
         def __init__(self, text: str, lang: str, widget: QWidget) -> None:
@@ -410,7 +448,6 @@ class FlashcardGameWidget(QAbstractWidget):
     def on_new_question(self) -> None:
         self.question_label.setText(self.game.question)
    
-        
 class TextInputFlashcardGameWidget(FlashcardGameWidget):
     def create_input_widget(self) -> QWidget:
         input_widget = QWidget()
@@ -460,8 +497,7 @@ class TextInputFlashcardGameWidget(FlashcardGameWidget):
                 self.confirm_button.setText("Check")
                 
                 self.on_new_question()
-                
-                
+                  
 class ChoiceFlashcardGameWidget(FlashcardGameWidget):
     def __init__(self, game: FlashcardGame, choices: int, *args, **kwargs) -> None:
         assert choices >= 2
@@ -540,10 +576,15 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
                 
                 
 class HiraganaTestSetup(QWidget):
+    @property
+    def minor_checkboxes(self):
+        return self.vowel_checkboxes + self.consonant_checkboxes
+    
     def __init__(self, parent: QWidget =  None, *args, **kwargs) -> None:
         super().__init__(parent, *args, **kwargs)
         self.parent = parent
         self.place_matrix()
+        
         
     def place_matrix(self):
         self.matrix = QWidget(self)
@@ -563,28 +604,83 @@ class HiraganaTestSetup(QWidget):
         alignment = Qt.AlignmentFlag.AlignCenter
         
         self.global_checkbox = QCheckBox()
+        self.global_checkbox.setTristate(True)
+        def global_checkbox_next_state():
+            match self.global_checkbox.checkState():
+                case Qt.CheckState.Checked:
+                    self.global_checkbox.setCheckState(Qt.CheckState.Unchecked)
+                case Qt.CheckState.Unchecked | Qt.CheckState.PartiallyChecked:
+                    self.global_checkbox.setCheckState(Qt.CheckState.Checked)
+        self.global_checkbox.nextCheckState = global_checkbox_next_state
+        self.global_checkbox.stateChanged.connect(self.on_global_checkbox_changed)
         self.layout.addWidget(self.global_checkbox, 0, 0, alignment)
         
+        self.vowel_checkboxes: list[QCheckBox] = []
+        self.consonant_checkboxes: list[QCheckBox] = []
+        
+        
         for row, vowel in enumerate(vowels, start=1):
-            self.layout.addWidget(QCheckBox(), row, 0, alignment)
+            checkbox = QCheckBox()
+            checkbox.row = row
+            self.vowel_checkboxes.append(checkbox)
+            self.layout.addWidget(checkbox, row, 0, alignment)
             
         for column, consonant in enumerate(consonants, start=1):
-            self.layout.addWidget(QCheckBox(), 0, column, alignment)
+            checkbox = QCheckBox()
+            checkbox.column = column
+            self.consonant_checkboxes.append(checkbox)
+            self.layout.addWidget(checkbox, 0, column, alignment)
             
         def romaji_hiragana_label(romaji: str) -> QLabel:
             label = QLabel(text=f"{romaji}\n{lang_utils.to_hiragana(romaji)}")
             label.setAlignment(alignment)
             return label
             
-        for (row, vowel), (column, consonant) in itertools.product(enumerate(vowels, start=1), enumerate(consonants, start=1)):
-            print(f"({row}, {column}) - {consonant + vowel}")            
+        for (row, vowel), (column, consonant) in itertools.product(enumerate(vowels, start=1), enumerate(consonants, start=1)):          
             if (syllable := consonant + vowel) in excluded:
                 continue
             syllable = exception_dict.get(syllable, syllable)
             self.layout.addWidget(romaji_hiragana_label(syllable), row, column, alignment)
             
         n_column = len(consonants) + 1
-        self.layout.addWidget(QCheckBox(), 0, n_column, alignment)
+        checkbox = QCheckBox()
+        checkbox.column = n_column
+        self.consonant_checkboxes.append(checkbox)
+        self.layout.addWidget(checkbox, 0, n_column, alignment)
         self.layout.addWidget(romaji_hiragana_label('n'), 1, n_column, alignment)
         
+        for checkbox in self.minor_checkboxes:
+            checkbox.stateChanged.connect(self.on_minor_checkbox_changed)
+        
+    def on_global_checkbox_changed(self):
+        if self.global_checkbox.checkState() == Qt.CheckState.PartiallyChecked:
+            return
+        
+        state = Qt.CheckState.Checked if self.global_checkbox.isChecked() else Qt.CheckState.Unchecked
+        
+        for ch in self.minor_checkboxes:
+            ch.blockSignals(False)
+            ch.setCheckState(state)
+            ch.blockSignals(False)
+        
+        self.on_selection_changed()
+    
+    def on_minor_checkbox_changed(self):
+        self.global_checkbox.blockSignals(True)
+        
+        checks = [ch.isChecked() for ch in self.minor_checkboxes]
+        
+        if all(checks):
+            self.global_checkbox.setCheckState(Qt.CheckState.Checked)
+        elif any(checks):
+            self.global_checkbox.setCheckState(Qt.CheckState.PartiallyChecked)
+        else:
+            self.global_checkbox.setCheckState(Qt.CheckState.Unchecked)
+            
+        self.global_checkbox.blockSignals(False)
+        self.on_selection_changed()
+        
+    def on_selection_changed(self):
+        pass
+            
         
