@@ -276,7 +276,7 @@ class DBManager(QWidget):
             
             self.voc_table.setRowCount(len(vocs))
             delimiter = self.list_attribute_delimiters[0]
-            for row, voc in tqdm(enumerate(vocs)):
+            for row, voc in enumerate(vocs):
                 for column, (text, data) in enumerate([(voc.word, voc.word), 
                                                        (delimiter.join(voc.meaning), voc.meaning),
                                                        (delimiter.join(voc.categories), voc.categories)]):

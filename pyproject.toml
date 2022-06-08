@@ -6,7 +6,6 @@ authors = ["PJBarczyk <260393@student.pwr.edu.pl>"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-dearpygui = "^1.6.2"
 romkan = {git = "https://github.com/Bel-Shazzar/python-romkan.git"}
 langdetect = "^1.0.9"
 playsound = "1.2.2"
