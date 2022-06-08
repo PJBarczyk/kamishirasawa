@@ -148,6 +148,7 @@ class DBManager(QWidget):
         self.db_edit_widget = QWidget(self)
         edit_layout = QHBoxLayout(self.db_edit_widget)
         self.db_delete_voc = QPushButton(text="Remove selected")
+        self.db_delete_voc.clicked.connect(self.remove_item)
         self.db_add_voc = QPushButton(text="Add new")
         edit_layout.addWidget(self.db_delete_voc)        
         edit_layout.addWidget(self.db_add_voc)
@@ -223,7 +224,15 @@ class DBManager(QWidget):
     def on_selected_db_changed(self, index: typing.SupportsIndex):
         self.selected_db: DB = self.db_combobox.itemData(index, Qt.ItemDataRole.UserRole)
         self.redraw_voc_table()
-        
+
+    def remove_item(self):
+        rows = {x.row() for x in self.voc_table.selectedIndexes()}
+        if rows:
+            self.keine.dbs_lock.value = True
+            for row in rows:
+                self.voc_table.removeRow(row)
+            self.save_changes_widget.setEnabled(True)
+
     def on_item_selected(self, item: QTableWidgetItem):
         print(f"Selected '{item.text()}'({item.row()}, {item.column()})")
         self.last_selected_text = item.text()
