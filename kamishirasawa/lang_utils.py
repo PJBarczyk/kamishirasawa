@@ -1,6 +1,7 @@
 from collections import defaultdict
 from typing import Dict, Tuple
 import pykakasi
+import romkan
 
 convert = pykakasi.Kakasi().convert
 
@@ -11,6 +12,9 @@ def convert_concat(text: str) -> Dict[str, str]:
             concatenated[k] += v
             
     return concatenated
+
+def to_hiragana(text: str) -> str:
+    return romkan.to_hiragana(text)
 
 def to_romaji(text: str) -> str:
     return " ".join([x["hepburn"] for x in convert(text)])

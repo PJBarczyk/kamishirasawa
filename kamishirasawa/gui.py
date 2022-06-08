@@ -1,3 +1,4 @@
+import itertools
 import os
 import random
 import typing
@@ -6,7 +7,7 @@ from enum import Enum, auto
 
 from PyQt6.QtCore import QRunnable, Qt, QThreadPool, QSize
 from PyQt6.QtGui import QAction, QIcon
-from PyQt6.QtWidgets import (QButtonGroup, QComboBox, QFileDialog, QGridLayout,
+from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QFileDialog, QGridLayout,
                              QHBoxLayout, QLabel, QLineEdit, QMainWindow,
                              QPushButton, QRadioButton, QTableWidget,
                              QVBoxLayout, QWidget, QTableWidgetItem, QHeaderView)
@@ -40,7 +41,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.workspace)
         layout = QVBoxLayout(self.workspace)
         
-        layout.addWidget(DBManager(self, self.keine), 1)
+        # layout.addWidget(DBManager(self, self.keine), 1)
+        layout.addWidget(HiraganaTestSetup(self), 1)
         
         self.destroyed.connect(self.keine.close_all_dbs)
         
@@ -539,6 +541,50 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
                 
 class HiraganaTestSetup(QWidget):
     def __init__(self, parent: QWidget =  None, *args, **kwargs) -> None:
-        
         super().__init__(parent, *args, **kwargs)
-    
+        self.parent = parent
+        self.place_matrix()
+        
+    def place_matrix(self):
+        self.matrix = QWidget(self)
+        self.layout = QGridLayout(self)
+        
+        vowels = ['a', 'i', 'u', 'e', 'o']
+        consonants = ['', 'k', 's', 't', 'n', 'h', 'm', 'y', 'r', 'w']
+        
+        excluded = {"yi", "ye", "wu"}
+        exception_dict = {
+            "si": "shi",
+            "hu": "fu",
+            "ti": "chi",
+            "tu": "tsu",
+        }
+        
+        alignment = Qt.AlignmentFlag.AlignCenter
+        
+        self.global_checkbox = QCheckBox()
+        self.layout.addWidget(self.global_checkbox, 0, 0, alignment)
+        
+        for row, vowel in enumerate(vowels, start=1):
+            self.layout.addWidget(QCheckBox(), row, 0, alignment)
+            
+        for column, consonant in enumerate(consonants, start=1):
+            self.layout.addWidget(QCheckBox(), 0, column, alignment)
+            
+        def romaji_hiragana_label(romaji: str) -> QLabel:
+            label = QLabel(text=f"{romaji}\n{lang_utils.to_hiragana(romaji)}")
+            label.setAlignment(alignment)
+            return label
+            
+        for (row, vowel), (column, consonant) in itertools.product(enumerate(vowels, start=1), enumerate(consonants, start=1)):
+            print(f"({row}, {column}) - {consonant + vowel}")            
+            if (syllable := consonant + vowel) in excluded:
+                continue
+            syllable = exception_dict.get(syllable, syllable)
+            self.layout.addWidget(romaji_hiragana_label(syllable), row, column, alignment)
+            
+        n_column = len(consonants) + 1
+        self.layout.addWidget(QCheckBox(), 0, n_column, alignment)
+        self.layout.addWidget(romaji_hiragana_label('n'), 1, n_column, alignment)
+        
+        
