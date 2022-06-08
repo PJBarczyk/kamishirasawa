@@ -227,7 +227,7 @@ class DBManager(QWidget):
         pass
                 
     def on_item_changed(self, item: QTableWidgetItem):
-        item.setText(item.text())
+        item.setText(item.text().strip())
         
         def validate(self, item: QTableWidgetItem):
             text = item.text()
