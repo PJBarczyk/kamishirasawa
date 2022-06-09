@@ -1,0 +1,11 @@
+家族	family	FAMILY
+父	father	FAMILY
+お父さん	dad	FAMILY
+母	mother	FAMILY
+お母さん	mum	FAMILY
+親	parent(s)	FAMILY
+両親	both parents	FAMILY PLURAL
+姉	older sister	FAMILY
+兄	older brother	FAMILY
+妹	younger sister	FAMILY
+弟	younger brother	FAMILY

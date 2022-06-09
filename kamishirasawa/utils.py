@@ -39,7 +39,10 @@ class ObservableFlag:
     def set_value(self, value):
         self.__value = value
         for callable in self.__on_write_callables:
-            callable(value)
+            try:
+                callable(value)
+            except RuntimeError:
+                pass
             
     def add_on_write(self, callable: Callable[[bool], Any]):
         self.__on_write_callables.add(callable)

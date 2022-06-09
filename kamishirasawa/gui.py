@@ -306,10 +306,10 @@ class DBManager(QWidget):
         self.redraw_voc_table()
 
     def remove_item(self):
-        rows = {x.row() for x in self.voc_table.selectedIndexes()}
+        rows = list({x.row() for x in self.voc_table.selectedIndexes()})
         if rows:
             self.keine.dbs_lock.value = True
-            for row in rows:
+            for row in reversed(rows):
                 self.voc_table.removeRow(row)
             self.save_changes_widget.setEnabled(True)
 
@@ -317,7 +317,7 @@ class DBManager(QWidget):
         self.keine.dbs_lock.value = True
         count = self.voc_table.rowCount()
         self.voc_table.setRowCount(count + 1)
-        self.set_voc(count, Voc("-", ["-"], ["-"]))
+        self.set_voc(count, Voc("-", ["-"], []))
         self.voc_table.scrollToBottom()
         self.save_changes_widget.setEnabled(True)
 
@@ -329,7 +329,7 @@ class DBManager(QWidget):
             "TSV files (*.tsv);;CSV files(*.csv);;All files (*.*)")
         if path:
             try:
-                with open(path, 'rt') as file:
+                with open(path, 'rt', encoding='utf8') as file:
                     items = list(csv.reader(file, delimiter='\t'))
                     self.voc_table.model().blockSignals(True)
                     count = self.voc_table.rowCount()
@@ -348,11 +348,11 @@ class DBManager(QWidget):
                     self.save_changes_widget.setEnabled(True)
                 self.parent.statusbar.showMessage("File loaded")
 
-            except:
+            except Exception as e:
+                raise e
                 self.parent.statusbar.showMessage("Failed to load file")
 
     def on_item_selected(self, item: QTableWidgetItem):
-        # print(f"Selected '{item.text()}'({item.row()}, {item.column()})")
         self.last_selected_text = item.text()
                 
     def on_item_changed(self, item: QTableWidgetItem):
@@ -366,7 +366,7 @@ class DBManager(QWidget):
                         raise ValueError("Field 'Word' cannot be empty")
                     data = text
                 case 1:
-                    meanings = list({s.strip().lower(): None for s in utils.multi_split(text, self.list_attribute_delimiters) if s})
+                    meanings = list({s.strip().casefold(): None for s in utils.multi_split(text, self.list_attribute_delimiters) if s})
                     if not meanings:
                         raise ValueError("Field 'Meaning' cannot be empty")
                     text = (self.list_attribute_delimiters[0] + " ").join(meanings)
@@ -425,7 +425,6 @@ class DBManager(QWidget):
         vocs = []
         for row in range(self.voc_table.rowCount()):
             [word, meaning, categories] = [self.voc_table.item(row, column).data(Qt.ItemDataRole.UserRole) for column in range(3)]
-            # print(word, meaning, categories)
             vocs.append(Voc(word, meaning, categories))
             
         self.selected_db.clear_and_write_data(vocs)
@@ -535,15 +534,19 @@ class FlashcardGameWidget(QAbstractWidget):
         self.parent = parent
         self.game = game
         self.state = self.State.READING_ANSWER
+        self.display_mode: self.DisplayMode = None
         self.display_mode_changed = utils.Event()
         
         self.display_settings = QButtonGroup()
         r1 = QRadioButton(text="Kanji/Kana")
         r1.setChecked(True)
+        r1.toggled.connect(lambda: setattr(self, "display_mode", self.DisplayMode.ORIGINAL))
         r1.toggled.connect(lambda: self.display_mode_changed(self.DisplayMode.ORIGINAL))
         r2 = QRadioButton(text="Furigana")
+        r2.toggled.connect(lambda: setattr(self, "display_mode", self.DisplayMode.FURIGANA))
         r2.toggled.connect(lambda: self.display_mode_changed(self.DisplayMode.FURIGANA))
         r3 = QRadioButton(text="Romaji")
+        r3.toggled.connect(lambda: setattr(self, "display_mode", self.DisplayMode.ROMAJI))
         r3.toggled.connect(lambda: self.display_mode_changed(self.DisplayMode.ROMAJI))
         self.display_settings.addButton(r1)
         self.display_settings.addButton(r2)
@@ -654,6 +657,25 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
         
         super().__init__(parent, game, *args, **kwargs)
         
+    def refresh_choice_buttons_text(self):
+        
+        match self.display_mode:
+            case self.DisplayMode.ORIGINAL:
+                for button in self.answer_buttons:
+                    button.setText(button.answer)
+                
+            case self.DisplayMode.FURIGANA:
+                for button in self.answer_buttons:
+                    text = ""
+                    for orig, hira in lang_utils.furigana(button.answer):
+                        text += hira if hira else orig
+                        
+                    button.setText(text)
+                
+            case self.DisplayMode.ROMAJI:
+                for button in self.answer_buttons:
+                    button.setText(lang_utils.to_romaji(button.answer))
+        
     def create_input_widget(self) -> QWidget:
         widget = QWidget()
         layout = QVBoxLayout(widget)
@@ -669,23 +691,7 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
             if action:
                 action.triggered.connect(lambda: self.give_answer(button.answer))
                 
-        def add_display_mode_chagned_callback(button: QPushButton):
-            def update_button_text(display_mode: self.DisplayMode):
-                match display_mode:
-                    case self.DisplayMode.ORIGINAL:
-                        button.setText(button.answer)
-                        
-                    case self.DisplayMode.FURIGANA:
-                        text = ""
-                        for orig, hira in lang_utils.furigana(button.answer):
-                            text += hira if hira else orig
-                            
-                        button.setText(text)
-                        
-                    case self.DisplayMode.ROMAJI:
-                        button.setText(lang_utils.to_romaji(button.answer))
-                        
-            self.display_mode_changed += update_button_text
+        self.display_mode_changed += lambda *_: self.refresh_choice_buttons_text()
         
         keys_iter = iter([str(n) for n in [*range(1, 10)] + [0]])
         for button in self.answer_buttons:
@@ -700,7 +706,6 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
                 action = None
             
             connect(button, action)
-            add_display_mode_chagned_callback(button)
             
         self.set_choices()
         
@@ -711,8 +716,9 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
         random.shuffle(available_answers)
         
         for button, answer in zip(self.answer_buttons, available_answers):
-            button.setText(answer)   
-            button.answer = answer          
+            button.answer = answer
+            
+        self.refresh_choice_buttons_text()
     
     def give_answer(self, answer: str) -> None:        
         match self.state:
@@ -790,7 +796,7 @@ class VocTestSetupWidget(QWidget):
         en_to_ja_radio_button.game_cls = EnToJaGame
         mode_select.layout.addWidget(en_to_ja_radio_button)
         
-        register_toggled_callback = lambda rb: rb.toggled.connect(lambda: [setattr(self, "game_cls", rb.game_cls), print(self.game_cls)])
+        register_toggled_callback = lambda rb: rb.toggled.connect(lambda: setattr(self, "game_cls", rb.game_cls))
         for rb in (ja_to_en_radio_button, en_to_ja_radio_button):
             register_toggled_callback(rb)
             
@@ -816,6 +822,7 @@ class VocTestSetupWidget(QWidget):
         self.choices_spinbox = QSpinBox()
         self.choices_spinbox.setMinimum(2)
         self.choices_spinbox.setMaximum(10)
+        self.choices_spinbox.setValue(3)
         self.choices_spinbox.label = QLabel("Choices per question", self)
         self.layout.addRow(self.choices_spinbox.label, self.choices_spinbox)
         
@@ -837,7 +844,6 @@ class VocTestSetupWidget(QWidget):
             return ChoiceFlashcardGameWidget(parent, game, choices=self.choices_spinbox.value())
     
     def play(self):
-        print(self.game_cls)
         game_widget = self.get_game_widget(self.game_cls(self.vocs, passes_per_flashcard=self.passes_spinbox.value()))
         self.main_window.replace_central_widget(game_widget)
 
@@ -853,6 +859,7 @@ class DBGameSetupWidget(QWidget):
         self.layout = QVBoxLayout(self)
         self.selected_vocs = []
         
+        self.layout.addWidget(QLabel("Include categories:"))
         self.place_category_select()
         self.layout.addStretch()
         self.game_setup_widget = VocTestSetupWidget(self.selected_vocs, self)
@@ -863,7 +870,6 @@ class DBGameSetupWidget(QWidget):
         self.update_categories()
         
     def update_categories(self):
-        print(self.parent.keine.dbs)
         # Find the set of all categories present in attached DBs
         categories = set()
         for db in self.parent.keine.dbs:
@@ -922,7 +928,7 @@ class DBGameSetupWidget(QWidget):
         for db in self.parent.keine.dbs:
             for voc in db.read_data():
                 match voc.categories:
-                    case [] if self.parent.NO_CATEGORIES in selected_categories:
+                    case [] if self.NO_CATEGORIES in selected_categories:
                         self.selected_vocs.append(voc)
                     case [*cats] if set.intersection(set(cats), selected_categories):
                         self.selected_vocs.append(voc)

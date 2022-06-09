@@ -16,6 +16,10 @@ class Voc:
     meaning: list[str]
     categories: list[str]
     
+    def __post_init__(self):
+        self.meaning = list({s.casefold().strip() for s in self.meaning})
+        self.categories = list({s.upper().strip() for s in self.categories})
+    
     @classmethod
     def get_from_json(cls, path: str) -> list:        
         with open(path, "r") as file:
@@ -99,7 +103,7 @@ class FlashcardGame(ABC):
 
 class JaToEnGame(FlashcardGame):
     def check_answer(self, answer: str) -> bool:
-        return answer in self._current.meaning or answer == self.formatted_answer
+        return answer.casefold() in self._current.meaning or answer == self.formatted_answer
     
     @property
     def question(self) -> str:
