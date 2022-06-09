@@ -16,6 +16,7 @@ class DBFileError(Exception):
     pass
 
 class DB:
+    # DB represents a file containing vocs, structured as JSON
     def __init__(self, path) -> None:
         try:
             self.file = open(path, 'a+')
@@ -29,6 +30,7 @@ class DB:
         self.file.seek(0)
         return json.load(self.file, object_hook=lambda kwargs: Voc(**kwargs))
     
+    # Truncates the file and writes given vocs
     def clear_and_write_data(self, data: Iterable[Voc]) -> None:
         self.file.truncate(0)
         json.dump([d.__dict__ for d in data], self.file, indent=4)
@@ -44,7 +46,6 @@ class Keine:
         self.on_dbs_changed = Event()
         
         self.dbs_lock = ObservableFlag(False)
-        # self.dbs_lock.add_on_write(lambda b: print(f"DBs lock {'on' if b else 'off'}."))
         
     def attach_db(self, path) -> None:
         if os.path.normpath(path) in {db.path for db in self.dbs}:

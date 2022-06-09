@@ -32,13 +32,15 @@ def furigana(text: str) -> Tuple[str, str]:
         if orig in {hira, kata}:
             tuples.append((orig, None))
             
-        else:            
+        else:
+            i = -1            
             for i, (orig_char, hira_char) in enumerate(zip(reversed(orig), reversed(hira))):
                 if orig_char != hira_char:
                     break
-            
-            tuples.append((orig[-i:], hira[-i:]))
-            tuples.append((hira[:-i], None))
+                
+            if i != -1:
+                tuples.append((orig[-i:], hira[-i:]))
+                tuples.append((hira[:-i], None))
     
     return tuples
 

@@ -24,6 +24,7 @@ class Event:
                 pass
             
 class ObservableFlag:
+    # An event of sorts, 
     def __init__(self, value=None) -> None:
         self.__value = value
         self.__on_write_callables = set[Callable[[bool], Any]]()

@@ -1,0 +1,102 @@
+[
+    {
+        "word": "\u5bb6\u65cf",
+        "meaning": [
+            "family"
+        ],
+        "categories": [
+            "FAMILY"
+        ]
+    },
+    {
+        "word": "\u7236",
+        "meaning": [
+            "father"
+        ],
+        "categories": [
+            "FAMILY"
+        ]
+    },
+    {
+        "word": "\u304a\u7236\u3055\u3093",
+        "meaning": [
+            "dad"
+        ],
+        "categories": [
+            "FAMILY"
+        ]
+    },
+    {
+        "word": "\u6bcd",
+        "meaning": [
+            "mother"
+        ],
+        "categories": [
+            "FAMILY"
+        ]
+    },
+    {
+        "word": "\u304a\u6bcd\u3055\u3093",
+        "meaning": [
+            "mum"
+        ],
+        "categories": [
+            "FAMILY"
+        ]
+    },
+    {
+        "word": "\u89aa",
+        "meaning": [
+            "parent(s)"
+        ],
+        "categories": [
+            "FAMILY"
+        ]
+    },
+    {
+        "word": "\u4e21\u89aa",
+        "meaning": [
+            "both parents"
+        ],
+        "categories": [
+            "FAMILY",
+            "PLURAL"
+        ]
+    },
+    {
+        "word": "\u59c9",
+        "meaning": [
+            "older sister"
+        ],
+        "categories": [
+            "FAMILY"
+        ]
+    },
+    {
+        "word": "\u5144",
+        "meaning": [
+            "older brother"
+        ],
+        "categories": [
+            "FAMILY"
+        ]
+    },
+    {
+        "word": "\u59b9",
+        "meaning": [
+            "younger sister"
+        ],
+        "categories": [
+            "FAMILY"
+        ]
+    },
+    {
+        "word": "\u5f1f",
+        "meaning": [
+            "younger brother"
+        ],
+        "categories": [
+            "FAMILY"
+        ]
+    }
+]

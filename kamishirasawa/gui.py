@@ -112,12 +112,13 @@ class MainWindow(QMainWindow):
         
 
     DB_FILE_FILTER = "Kamishirasawa DB files (*.kamidb);;All files (*.*)"
+    DB_DEFAULT_PATH = os.path.dirname(os.path.dirname(__file__))
         
     def attach_db_dialog(self):
         paths, _ = QFileDialog.getOpenFileNames(
             self,
             "Attach DB",
-            os.path.dirname(__file__),
+            self.DB_DEFAULT_PATH,
             self.DB_FILE_FILTER)
         
         if len(paths) == 1:
@@ -132,7 +133,7 @@ class MainWindow(QMainWindow):
             except DBAlreadyAttachedError:
                 self.statusbar.showMessage(f"DB '{os.path.basename(path)}' is already attached.")
             except DBParseError as e:
-                raise e
+                print(e)
                 self.statusbar.showMessage(f"Failed to parse '{os.path.basename(path)}'.")
                 
         else:
@@ -161,7 +162,7 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getSaveFileName(
             self,
             "Create DB",
-            os.path.dirname(__file__),
+            self.DB_DEFAULT_PATH,
             self.DB_FILE_FILTER)
 
         if path:
@@ -325,7 +326,7 @@ class DBManager(QWidget):
         path, _ = QFileDialog.getOpenFileName(
             self,
             "Attach DB",
-            os.path.dirname(__file__),
+            os.path.dirname(os.path.dirname(__file__)),
             "TSV files (*.tsv);;CSV files(*.csv);;All files (*.*)")
         if path:
             try:
@@ -467,6 +468,7 @@ class KanjiKanaLabel(QWidget):
     def setText(self, text: str) -> None:
         self.__text = text
         
+        # Clear widgets in layout (nedded because furigana creates lot's of labels)
         for i in reversed(range(self.layout().count())):
             self.layout().itemAt(i).widget().setParent(None)
         
@@ -534,9 +536,10 @@ class FlashcardGameWidget(QAbstractWidget):
         self.parent = parent
         self.game = game
         self.state = self.State.READING_ANSWER
-        self.display_mode: self.DisplayMode = None
+        self.display_mode = self.DisplayMode.ORIGINAL
         self.display_mode_changed = utils.Event()
         
+        # Display mode radio buttons
         self.display_settings = QButtonGroup()
         r1 = QRadioButton(text="Kanji/Kana")
         r1.setChecked(True)
@@ -552,6 +555,7 @@ class FlashcardGameWidget(QAbstractWidget):
         self.display_settings.addButton(r2)
         self.display_settings.addButton(r3)
         
+        # Set formatting rule of question label
         def update_kanjikana_label(display_mode: self.DisplayMode):
             match display_mode:
                 case self.DisplayMode.ORIGINAL:
@@ -578,6 +582,20 @@ class FlashcardGameWidget(QAbstractWidget):
         self.layout.addWidget(r3, alignment=Qt.AlignmentFlag.AlignLeft)
         self.layout.addWidget(question_widget, alignment=Qt.AlignmentFlag.AlignCenter)
         self.layout.addWidget(self.create_input_widget(), alignment=Qt.AlignmentFlag.AlignCenter)
+        
+    def format_inline_text(self, text):
+        match self.display_mode:
+            case self.DisplayMode.ORIGINAL:
+                return text
+                
+            case self.DisplayMode.FURIGANA:
+                hiragana = ""
+                for orig, hira in lang_utils.furigana(text):
+                    hiragana += hira if hira else orig
+                return hiragana
+                
+            case self.DisplayMode.ROMAJI:
+                return lang_utils.to_romaji(text)
                 
     @abstractmethod
     def create_input_widget(self) -> QWidget:
@@ -633,12 +651,15 @@ class TextInputFlashcardGameWidget(FlashcardGameWidget):
                 
                 else:
                     self.feedback_label.setText(
-                        f"{'<b>Wrong!</b> ' if self.feedback_label.text() else ''}Should be: {self.game.formatted_answer}")
+                        f"{'<b>Wrong!</b> ' if self.feedback_label.text() else ''}"
+                        f"Should be: {self.format_inline_text(self.game.formatted_answer)}")
                     self.on_incorrect_answer()
                     
             case self.State.GIVING_FEEDBACK:
+                # If user passed all flashcards, close game widget
                 if self.game.is_done:
                     self.finish()
+                    return
                 
                 self.state = self.State.READING_ANSWER
                 
@@ -658,23 +679,8 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
         super().__init__(parent, game, *args, **kwargs)
         
     def refresh_choice_buttons_text(self):
-        
-        match self.display_mode:
-            case self.DisplayMode.ORIGINAL:
-                for button in self.answer_buttons:
-                    button.setText(button.answer)
-                
-            case self.DisplayMode.FURIGANA:
-                for button in self.answer_buttons:
-                    text = ""
-                    for orig, hira in lang_utils.furigana(button.answer):
-                        text += hira if hira else orig
-                        
-                    button.setText(text)
-                
-            case self.DisplayMode.ROMAJI:
-                for button in self.answer_buttons:
-                    button.setText(lang_utils.to_romaji(button.answer))
+        for button in self.answer_buttons:
+            button.setText(self.format_inline_text(button.answer))
         
     def create_input_widget(self) -> QWidget:
         widget = QWidget()
@@ -705,6 +711,7 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
             except:
                 action = None
             
+            # Register related callbacks to the button
             connect(button, action)
             
         self.set_choices()
@@ -712,12 +719,14 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
         return widget
         
     def set_choices(self) -> None:
+        # Create a list containg one correct answer with the rest being incorrect
         available_answers = [self.game.formatted_answer] + self.game.sample_incorrect_answers(self.choices - 1)
         random.shuffle(available_answers)
         
         for button, answer in zip(self.answer_buttons, available_answers):
             button.answer = answer
             
+        # Format button's text accordingly to current display mode
         self.refresh_choice_buttons_text()
     
     def give_answer(self, answer: str) -> None:        
@@ -725,6 +734,7 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
             case self.State.READING_ANSWER:                
                 self.state = self.State.GIVING_FEEDBACK
                 
+                # Gray out all the incorrect buttons
                 for button in self.answer_buttons:
                     button.setDisabled(not self.game.check_answer(button.answer))
                 
@@ -734,7 +744,7 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
                 
                 else:
                     self.feedback_label.setText(
-                        f"<b>Wrong!</b> Should be: {self.game.formatted_answer}")
+                        f"<b>Wrong!</b> Should be: {self.format_inline_text(self.game.formatted_answer)}")
                     self.on_incorrect_answer()
                     
                     
@@ -745,12 +755,12 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
                 
                 self.state = self.State.READING_ANSWER
                 
+                # Reenable all the buttons
                 for button in self.answer_buttons:
                     button.setDisabled(False)
                 self.set_choices()
                     
                 self.feedback_label.setText("")
-                
                 self.on_new_question()
 
 class VocTestSetupWidget(QWidget):
@@ -796,10 +806,12 @@ class VocTestSetupWidget(QWidget):
         en_to_ja_radio_button.game_cls = EnToJaGame
         mode_select.layout.addWidget(en_to_ja_radio_button)
         
+        # Register setattr-ing callbacks to the buttons
         register_toggled_callback = lambda rb: rb.toggled.connect(lambda: setattr(self, "game_cls", rb.game_cls))
         for rb in (ja_to_en_radio_button, en_to_ja_radio_button):
             register_toggled_callback(rb)
             
+        # Select one button as default
         ja_to_en_radio_button.toggle()
         
     def place_gamemode_select_widget(self):
@@ -819,6 +831,7 @@ class VocTestSetupWidget(QWidget):
         for rb in (choice_radio_button, text_input_radio_button):
             register_toggled_callback(rb)
         
+        # Widget allowing to specify choice button count
         self.choices_spinbox = QSpinBox()
         self.choices_spinbox.setMinimum(2)
         self.choices_spinbox.setMaximum(10)
@@ -838,12 +851,14 @@ class VocTestSetupWidget(QWidget):
     def get_game_widget(self, game: FlashcardGame) -> QWidget:
         parent = self.parent.parent
         
+        # Create a widget for a flashcard game, type being specified by selected radio button
         if self.game_widget_type is TextInputFlashcardGameWidget:
             return TextInputFlashcardGameWidget(parent, game)
         if self.game_widget_type is ChoiceFlashcardGameWidget:
             return ChoiceFlashcardGameWidget(parent, game, choices=self.choices_spinbox.value())
     
     def play(self):
+        # Instantiate the game widget with the parameters set in the form, set is as main widget in the window
         game_widget = self.get_game_widget(self.game_cls(self.vocs, passes_per_flashcard=self.passes_spinbox.value()))
         self.main_window.replace_central_widget(game_widget)
 
@@ -887,7 +902,7 @@ class DBGameSetupWidget(QWidget):
             widget.setParent(None)
             
         # Populate the layout
-        for category in sorted(categories, key=lambda x: (x == self.NO_CATEGORIES, x)): # Ensure that NO_CATEGORIES is at the top
+        for category in sorted(categories, key=lambda x: (x == self.NO_CATEGORIES, x)): # Ensure that NO_CATEGORIES is at the bottom
             checkbox = QCheckBox(text=category)
             checkbox.category = category
             layout.addWidget(checkbox)
