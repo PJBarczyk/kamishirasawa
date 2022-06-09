@@ -13,6 +13,9 @@ class Event:
         return self
         
     def __call__(self, *args, **kwargs):
+        for arg in args:
+            if isinstance(arg, Callable):
+                raise TypeError("Ivoked error with Callable as a parameter. Didn't you mean to use the '+=' operator?")
         for callable in self.__callables:
             callable(*args, **kwargs)
             

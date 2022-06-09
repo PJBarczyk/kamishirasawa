@@ -1,7 +1,5 @@
-from io import StringIO
 import json
 import os
-import shutil
 from typing import Iterable
 
 from games import Voc
@@ -46,7 +44,7 @@ class Keine:
         self.on_dbs_changed = Event()
         
         self.dbs_lock = ObservableFlag(False)
-        self.dbs_lock.add_on_write(lambda b: print(f"DBs lock {'on' if b else 'off'}."))
+        # self.dbs_lock.add_on_write(lambda b: print(f"DBs lock {'on' if b else 'off'}."))
         
     def attach_db(self, path) -> None:
         if os.path.normpath(path) in {db.path for db in self.dbs}:

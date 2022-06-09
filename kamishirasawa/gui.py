@@ -9,14 +9,14 @@ from functools import partial
 from PyQt6.QtCore import QRunnable, Qt, QThreadPool
 from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QFileDialog,
-                             QFormLayout, QGridLayout, QHBoxLayout,
+                             QFormLayout, QFrame, QGridLayout, QHBoxLayout,
                              QHeaderView, QLabel, QLineEdit, QMainWindow,
                              QPushButton, QRadioButton, QSpinBox, QTableWidget,
                              QTableWidgetItem, QVBoxLayout, QWidget)
 
 import lang_utils
 import utils
-from games import FlashcardGame, TupleFlashcardGame, Voc
+from games import FlashcardGame, TupleFlashcardGame, Voc, JaToEnGame
 from keine import DB, DBAlreadyAttachedError, DBParseError, Keine
 from lang_utils import to_hiragana, to_romaji
 from tts import tts
@@ -28,6 +28,10 @@ class MetaQAbstractWidget(type(QWidget), type(ABC)):
 class QAbstractWidget(QWidget, ABC, metaclass=MetaQAbstractWidget):
     pass
 
+class HSeparator(QFrame):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.setFrameShape(QFrame.Shape.HLine)
 
 class MainWindow(QMainWindow):
     def __init__(self, parent: QWidget = None, *args, **kwargs) -> None:
@@ -39,8 +43,8 @@ class MainWindow(QMainWindow):
         self.place_menubar()
         self.attached_dbs = set()
         
-        self.replace_central_widget(DBManager(self, self.keine))
-        self.replace_central_widget(HiraganaTestSetupWidget(self))
+        # self.replace_central_widget(DBManager(self, self.keine))
+        # self.replace_central_widget(HiraganaTestSetupWidget(self))
         
         self.statusbar = self.statusBar()
         
@@ -50,20 +54,30 @@ class MainWindow(QMainWindow):
         menubar = self.menuBar()
         
         filemenu = menubar.addMenu("File")
+        
         attach = filemenu.addAction("Attach DB")
         attach.setShortcut("Ctrl+Shift+A")
-        attach.triggered.connect(lambda: self.attach_db_dialog(disconnect))
+        attach.triggered.connect(self.attach_db_dialog)
+        self.keine.dbs_lock.add_on_write(lambda b: attach.setDisabled(b))
         
         create = filemenu.addAction("Create a new DB")
         create.setShortcut("Ctrl+Shift+N")
-        create.triggered.connect(lambda: self.create_db_dialog(disconnect))
+        create.triggered.connect(self.create_db_dialog)
+        self.keine.dbs_lock.add_on_write(lambda b: create.setDisabled(b))
 
         disconnect = filemenu.addAction("Disconnect all DBs")
-        disconnect.triggered.connect(lambda: self.disconnect_all_dbs(disconnect))
+        disconnect.triggered.connect(self.disconnect_all_dbs)
         disconnect.setDisabled(True)
-        disconnect_disable_func = lambda *_: disconnect.setDisabled(not self.keine.dbs or bool(self.keine.dbs_lock))
-        self.keine.on_dbs_changed(disconnect_disable_func)
+        def disconnect_disable_func(*_):
+            disconnect.setDisabled(not self.keine.dbs or self.keine.dbs_lock.value)
+
+        self.keine.on_dbs_changed += disconnect_disable_func
         self.keine.dbs_lock.add_on_write(disconnect_disable_func)
+        
+        filemenu.addSeparator()
+        open_db_manager = filemenu.addAction("DB manager")
+        open_db_manager.triggered.connect(lambda: self.replace_central_widget(DBManager(self)))
+        self.keine.dbs_lock.add_on_write(lambda b: open_db_manager.setDisabled(b))
         
         filemenu.addSeparator()
         quit = filemenu.addAction("Quit")
@@ -72,12 +86,19 @@ class MainWindow(QMainWindow):
 
         self.learnmenu = menubar.addMenu("Learn")
         self.keine.dbs_lock.add_on_write(lambda b: self.learnmenu.setDisabled(b))
+        
+        from_dbs = self.learnmenu.addAction("From DBs")
+        from_dbs.setDisabled(True)
+        self.keine.on_dbs_changed += (lambda: from_dbs.setDisabled(not self.keine.dbs))
+        from_dbs.triggered.connect(lambda: self.replace_central_widget(DBGameSetupWidget(self)))
+        
         hiragana = self.learnmenu.addAction("Hiragana")
-        hiragana.triggered.connect(lambda: self.replace_central_widget(HiraganaTestSetupWidget()))
+        hiragana.triggered.connect(lambda: self.replace_central_widget(HiraganaTestSetupWidget(self)))
+        
 
     DB_FILE_FILTER = "Kamishirasawa DB files (*.kamidb);;All files (*.*)"
         
-    def attach_db_dialog(self, disconnect_action = QAction):
+    def attach_db_dialog(self):
         paths, _ = QFileDialog.getOpenFileNames(
             self,
             "Attach DB",
@@ -95,7 +116,8 @@ class MainWindow(QMainWindow):
                 self.statusbar.showMessage(f"Attached '{os.path.basename(path)}'.")
             except DBAlreadyAttachedError:
                 self.statusbar.showMessage(f"DB '{os.path.basename(path)}' is already attached.")
-            except DBParseError:
+            except DBParseError as e:
+                raise e
                 self.statusbar.showMessage(f"Failed to parse '{os.path.basename(path)}'.")
                 
         else:
@@ -119,13 +141,8 @@ class MainWindow(QMainWindow):
                 message += f", could not parse{len(failed)} DBs"
             message += "."
             self.statusbar.showMessage(message)
-                
-            
-            
-        disconnect_action.setDisabled(False)
 
-    def create_db_dialog(self, disconnect_action = QAction):
-
+    def create_db_dialog(self):
         path, _ = QFileDialog.getSaveFileName(
             self,
             "Create DB",
@@ -135,14 +152,14 @@ class MainWindow(QMainWindow):
         if path:
             try:
                 self.keine.create_db(path)
+                
             except:
                 self.statusbar.showMessage(f"Failed to create the DB.")
 
-    def disconnect_all_dbs(self, disconnect_action = QAction):
+    def disconnect_all_dbs(self):
         if self.keine.dbs:
             self.keine.close_all_dbs()
             self.statusbar.showMessage(f"Disconnected all DBs.")
-            disconnect_action.setDisabled(True)
         else:
             self.statusbar.showMessage(f"No DBs are attached.")
 
@@ -156,16 +173,15 @@ class MainWindow(QMainWindow):
 class DBManager(QWidget):
     list_attribute_delimiters = [",", ";"]
     
-    def __init__(self, parent: QWidget, keine: Keine, *args, **kwargs) -> None:
+    def __init__(self, parent: QMainWindow, *args, **kwargs) -> None:
         super().__init__(parent, *args, **kwargs)
         self.parent = parent
-        
-        self.keine = keine
+        self.keine = parent.keine
         self.selected_db = None
         self.keine.on_dbs_changed += self.update_db_selector
         self.keine.on_dbs_changed += lambda: self.db_edit_widget.setEnabled(len(self.keine.dbs) > 0)
         
-        layout = QVBoxLayout(self)
+        self.layout = QVBoxLayout(self)
         
         self.place_db_selection_widget()
         self.place_save_changes_widget()
@@ -182,26 +198,35 @@ class DBManager(QWidget):
         edit_layout.addWidget(self.db_add_voc)
         self.db_edit_widget.setDisabled(True)
         
-        layout.addWidget(self.db_edit_widget)
-        
+        self.layout.addWidget(self.db_edit_widget)
         
         self.update_db_selector()
         
     def place_db_selection_widget(self):
         self.db_selection_widget = QWidget(self)
-        selection_layout = QHBoxLayout(self.db_selection_widget)
+        self.db_selection_widget.layout = QHBoxLayout(self.db_selection_widget)
         
         self.db_combobox = QComboBox(self.db_selection_widget)
         self.db_combobox.currentIndexChanged.connect(self.on_selected_db_changed)
-        detach_button = QPushButton(icon=QIcon("./icons/detach.png"))
-        detach_button.setFixedSize(32, 32)
-        detach_button.clicked.connect(lambda: self.keine.detach_db(self.db_combobox.currentData()))
         
-        selection_layout.addWidget(self.db_combobox, 1)
-        selection_layout.addWidget(detach_button, 0)
-        self.layout().addWidget(self.db_selection_widget)
+        self.db_selection_widget.attach_button = QPushButton(icon=QIcon("./icons/attach.png"))
+        self.db_selection_widget.attach_button.setFixedSize(32, 32)
+        self.db_selection_widget.attach_button.clicked.connect(self.parent.attach_db_dialog)
+        self.db_selection_widget.create_button = QPushButton(icon=QIcon("./icons/create.png"))
+        self.db_selection_widget.create_button.setFixedSize(32, 32)
+        self.db_selection_widget.create_button.clicked.connect(self.parent.create_db_dialog)
+        self.db_selection_widget.detach_button = QPushButton(icon=QIcon("./icons/detach.png"))
+        self.db_selection_widget.detach_button.setFixedSize(32, 32)
+        self.db_selection_widget.detach_button.clicked.connect(lambda: self.keine.detach_db(self.db_combobox.currentData()))
+        
+        self.db_selection_widget.layout.addWidget(self.db_combobox, 1)
+        self.db_selection_widget.layout.addWidget(self.db_selection_widget.attach_button, 0)
+        self.db_selection_widget.layout.addWidget(self.db_selection_widget.create_button, 0)
+        self.db_selection_widget.layout.addWidget(self.db_selection_widget.detach_button, 0)
+        self.layout.addWidget(self.db_selection_widget)
         
         self.keine.dbs_lock.add_on_write(lambda b: self.db_selection_widget.setDisabled(b))
+        
         
     def place_save_changes_widget(self):
         self.save_changes_widget = QWidget()
@@ -214,7 +239,7 @@ class DBManager(QWidget):
         
         save_changes_layout.addWidget(self.revert_changes_button)
         save_changes_layout.addWidget(self.save_changes_button)
-        self.layout().addWidget(self.save_changes_widget)
+        self.layout.addWidget(self.save_changes_widget)
         
         self.keine.dbs_lock.add_on_write(lambda b: self.save_changes_widget.setDisabled(not b))
         self.save_changes_widget.setDisabled(True)
@@ -225,31 +250,36 @@ class DBManager(QWidget):
         self.voc_table.itemClicked.connect(self.on_item_selected)
         self.voc_table.itemChanged.connect(self.on_item_changed)
 
-        self.layout().addWidget(self.voc_table)
+        self.layout.addWidget(self.voc_table)
         
     def update_db_selector(self):
-        if self.db_combobox:
-            last_db = self.db_combobox.currentData()
-            self.db_combobox.clear()
-            
-            match list(self.keine.dbs):
-                case []:
-                    self.db_selection_widget.setDisabled(True)
-                case [db]:
-                    self.db_combobox.addItem(os.path.basename(db.path), db)
-                    self.db_selection_widget.setDisabled(False)
-                    self.db_combobox.setCurrentIndex(0)
+        last_db = self.db_combobox.currentData()
+        self.db_combobox.clear()
+        
+        selection_layout = self.db_selection_widget.layout
+        
+        match list(self.keine.dbs):
+            case []:
+                for child in (selection_layout.itemAt(i).widget() for i in range(selection_layout.count())):
+                    child.setDisabled(child not in {self.db_selection_widget.attach_button, self.db_selection_widget.create_button})
+                    
+            case [db]:
+                self.db_combobox.addItem(os.path.basename(db.path), db)
+                for child in (selection_layout.itemAt(i).widget() for i in range(selection_layout.count())):
+                    child.setDisabled(False)
+                self.db_combobox.setCurrentIndex(0)
 
-                case dbs:
-                    commonpath_length = len(os.path.commonpath([db.path for db in dbs]))
-                    current_index = 0
-                    for i, db in enumerate(dbs):
-                        self.db_combobox.addItem(db.path[commonpath_length + 1:], db)
-                        if db == last_db:
-                            current_index = i
-                            
-                    self.db_combobox.setCurrentIndex(current_index)
-                    self.db_selection_widget.setDisabled(False)
+            case dbs:
+                commonpath_length = len(os.path.commonpath([db.path for db in dbs]))
+                current_index = 0
+                for i, db in enumerate(dbs):
+                    self.db_combobox.addItem(db.path[commonpath_length + 1:], db)
+                    if db == last_db:
+                        current_index = i
+                        
+                self.db_combobox.setCurrentIndex(current_index)
+                for child in (selection_layout.itemAt(i).widget() for i in range(selection_layout.count())):
+                    child.setDisabled(False)
         
     def on_selected_db_changed(self, index: typing.SupportsIndex):
         self.selected_db: DB = self.db_combobox.itemData(index, Qt.ItemDataRole.UserRole)
@@ -272,7 +302,7 @@ class DBManager(QWidget):
         self.save_changes_widget.setEnabled(True)
 
     def on_item_selected(self, item: QTableWidgetItem):
-        print(f"Selected '{item.text()}'({item.row()}, {item.column()})")
+        # print(f"Selected '{item.text()}'({item.row()}, {item.column()})")
         self.last_selected_text = item.text()
                 
     def on_item_changed(self, item: QTableWidgetItem):
@@ -345,7 +375,7 @@ class DBManager(QWidget):
         vocs = []
         for row in range(self.voc_table.rowCount()):
             [word, meaning, categories] = [self.voc_table.item(row, column).data(Qt.ItemDataRole.UserRole) for column in range(3)]
-            print(word, meaning, categories)
+            # print(word, meaning, categories)
             vocs.append(Voc(word, meaning, categories))
             
         self.selected_db.clear_and_write_data(vocs)
@@ -438,7 +468,7 @@ class TTSButton(QPushButton):
     def __on_clicked(self) -> None:
         self.setDisabled(True)
         QThreadPool.globalInstance().start(self.TTSRunnable(text=self.text_supplier(), lang="ja", widget=self))
-        
+    
 
 class FlashcardGameWidget(QAbstractWidget):
     class State(Enum):
@@ -618,8 +648,6 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
                 if self.game.is_done:
                     self.finish()
                     return
-                    
-                print(self.game.active)
                 
                 self.state = self.State.READING_ANSWER
                 
@@ -632,10 +660,10 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
                 self.on_new_question()
 
 class FlashcardGameSetupWidget(QAbstractWidget):
-    def __init__(self, data_source: typing.Iterable, main_window: MainWindow, parent: QWidget = None, *args, **kwargs) -> None:
+    def __init__(self, data_source: typing.Iterable, parent: QWidget, *args, **kwargs) -> None:
         super().__init__(parent=parent, *args, **kwargs)
         self.parent = parent
-        self.main_window = main_window
+        self.main_window = parent.parent
         self.layout = QFormLayout(self)
         self.data_source = data_source
         self.game_widget_type = None
@@ -658,7 +686,7 @@ class FlashcardGameSetupWidget(QAbstractWidget):
     def update(self):
         total_flashcards = len(self.data_source)
         
-        self.total_flashcards_label.setText(str())
+        self.total_flashcards_label.setText(str(total_flashcards))
         self.play_button.setDisabled(not bool(total_flashcards))
         
     def place_gamemode_select_widget(self):
@@ -693,7 +721,6 @@ class FlashcardGameSetupWidget(QAbstractWidget):
         self.choices_spinbox.label.setVisible(game_widget_type == ChoiceFlashcardGameWidget)
         
     def get_game_widget(self, game: FlashcardGame) -> QWidget:
-        print(self.game_widget_type)
         if self.game_widget_type is TextInputFlashcardGameWidget:
             return TextInputFlashcardGameWidget(game)
         if self.game_widget_type is ChoiceFlashcardGameWidget:
@@ -702,6 +729,97 @@ class FlashcardGameSetupWidget(QAbstractWidget):
     @abstractmethod
     def play(self):
         pass
+
+class DBGameSetupWidget(QWidget):
+    
+    class DBFlashcardGameSetupWidget(FlashcardGameSetupWidget):
+        def play(self):
+            game_widget = self.get_game_widget(JaToEnGame(self.data_source, self.passes_spinbox.value()))
+            game_widget.main_window = self.main_window
+            self.main_window.replace_central_widget(game_widget)
+    
+    NO_CATEGORIES = "Non categorised"
+    ALL_CATEGORIES = "All"
+    
+    def __init__(self, parent: MainWindow, *args, **kwargs) -> None:
+        super().__init__(parent, *args, **kwargs)
+        
+        self.parent = parent
+        self.layout = QVBoxLayout(self)
+        self.selected_vocs = []
+        
+        self.place_category_select()
+        self.game_setup_widget = self.DBFlashcardGameSetupWidget(self.selected_vocs, self)
+        self.layout.addWidget(self.game_setup_widget)
+        
+        self.parent.keine.on_dbs_changed += self.update_categories
+        self.update_categories()
+        
+    def update_categories(self):
+        categories = set()
+        for db in self.parent.keine.dbs:
+            for voc in db.read_data():
+                match voc.categories:
+                    case []:
+                        categories.add(self.NO_CATEGORIES)
+                    case [*cats]:
+                        categories |= set(cats)
+                        
+        layout: QVBoxLayout = self.category_select.layout
+        for widget in reversed([layout.itemAt(i).widget() for i in range(2, layout.count())]):
+            widget.setParent(None)
+            
+        for category in sorted(categories, key=lambda x: (x == self.NO_CATEGORIES, x)):
+            checkbox = QCheckBox(text=category)
+            checkbox.category = category
+            layout.addWidget(checkbox)
+            self.category_checkboxes.append(checkbox)
+            checkbox.stateChanged.connect(lambda *_: self.on_selected_categories_changed())
+        
+    def place_category_select(self):
+        self.category_select = QWidget()
+        self.layout.addWidget(self.category_select)
+        self.category_select.layout = QVBoxLayout(self.category_select)
+        
+        self.category_checkboxes: list[QCheckBox] = []
+        
+        self.all_categories_checkbox = QCheckBox(self.ALL_CATEGORIES)
+        self.all_categories_checkbox.setTristate(True)
+        def all_categories_checkbox_next_state():
+            match self.all_categories_checkbox.checkState():
+                case Qt.CheckState.Checked:
+                    self.all_categories_checkbox.setCheckState(Qt.CheckState.Unchecked)
+                case Qt.CheckState.Unchecked | Qt.CheckState.PartiallyChecked:
+                    self.all_categories_checkbox.setCheckState(Qt.CheckState.Checked)
+        self.all_categories_checkbox.nextCheckState = all_categories_checkbox_next_state
+        self.all_categories_checkbox.clicked.connect(lambda b: [ch.setChecked(b) for ch in self.category_checkboxes])
+        
+        self.category_select.layout.addWidget(self.all_categories_checkbox)
+        self.category_select.layout.addWidget(HSeparator())
+        
+        
+    def on_selected_categories_changed(self):
+        selected_categories = {ch.category for ch in self.category_checkboxes if ch.isChecked()}
+        print(selected_categories)
+        
+        self.selected_vocs.clear()
+        for db in self.parent.keine.dbs:
+            for voc in db.read_data():
+                match voc.categories:
+                    case [] if self.parent.NO_CATEGORIES in selected_categories:
+                        self.selected_vocs.append(voc)
+                    case [*cats] if set.intersection(set(cats), selected_categories):
+                        self.selected_vocs.append(voc)
+        
+        checks = [ch.isChecked() for ch in self.category_checkboxes]
+        if all(checks):
+            self.all_categories_checkbox.setCheckState(Qt.CheckState.Checked)
+        elif any(checks):
+            self.all_categories_checkbox.setCheckState(Qt.CheckState.PartiallyChecked)
+        else:
+            self.all_categories_checkbox.setCheckState(Qt.CheckState.Unchecked)
+            
+        self.game_setup_widget.update()
                           
 class HiraganaTestSetupWidget(QWidget):
     class HiraganaFlashcardGameSetupWidget(FlashcardGameSetupWidget):
@@ -710,7 +828,6 @@ class HiraganaTestSetupWidget(QWidget):
             
             game_widget = self.get_game_widget(TupleFlashcardGame(tuples, self.passes_spinbox.value()))
             game_widget.main_window = self.main_window
-            print(game_widget)
             self.main_window.replace_central_widget(game_widget)
     
     @property
@@ -726,7 +843,7 @@ class HiraganaTestSetupWidget(QWidget):
         
         self.place_matrix()
         
-        self.game_setup_widget = self.HiraganaFlashcardGameSetupWidget(self.selected_hiragana, self.parent)
+        self.game_setup_widget = self.HiraganaFlashcardGameSetupWidget(self.selected_hiragana, self)
         
         self.layout.addWidget(self.game_setup_widget)
         
