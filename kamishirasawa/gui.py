@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QFileDialog,
                              QTableWidgetItem, QVBoxLayout, QWidget)
 
 import lang_utils
-from utils import Event
+import utils
 from games import FlashcardGame, Voc, JaToEnGame, EnToJaGame
 from keine import DB, DBAlreadyAttachedError, DBParseError, Keine
 from tts import tts
@@ -39,14 +39,31 @@ class MainWindow(QMainWindow):
         self.keine = Keine()
         
         self.place_menubar()
-        self.attached_dbs = set()
-        
-        # self.replace_central_widget(DBManager(self, self.keine))
-        # self.replace_central_widget(HiraganaTestSetupWidget(self))
-        
+        self.place_welcome_widget()
         self.statusbar = self.statusBar()
         
         self.destroyed.connect(self.keine.close_all_dbs)
+        
+    def place_welcome_widget(self) -> None:
+        welcome_widget = QWidget(self)
+        welcome_widget.layout = QVBoxLayout(welcome_widget)
+        welcome_message = f"""<b>Welcome to Kamishirasawa!</b><br><br>
+        {lang_utils.kaomoji.joy()}<br><br>
+
+        Attach some DBs or create a new DB<br>
+        using <b>File</b> menu or open <b>DB manager</b>!<br><br>
+        
+        With DBs attached, you can practice<br>
+        vocabulary in <b>Play/From DBs</b> playmode.<br><br>
+        
+        If you wish to learn hiragana,<br>
+        use <b>Play/Hiragana</b> playmode.<br>
+        No DBs needed!"""
+        label = QLabel()
+        label.setText(welcome_message)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        welcome_widget.layout.addWidget(label)
+        self.replace_central_widget(welcome_widget)
         
     def place_menubar(self):
         menubar = self.menuBar()
@@ -484,7 +501,7 @@ class FlashcardGameWidget(QAbstractWidget):
         self.parent = parent
         self.game = game
         self.state = self.State.READING_ANSWER
-        self.display_mode_changed = Event()
+        self.display_mode_changed = utils.Event()
         
         self.display_settings = QButtonGroup()
         r1 = QRadioButton(text="Kanji/Kana")
@@ -541,7 +558,7 @@ class FlashcardGameWidget(QAbstractWidget):
     def finish(self) -> None:
         label = QLabel(f"That's all! Congrats'!\n{lang_utils.kaomoji.joy()}")
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.parent.parent.replace_central_widget(label)
+        self.parent.replace_central_widget(label)
     
 class TextInputFlashcardGameWidget(FlashcardGameWidget):
     def create_input_widget(self) -> QWidget:
@@ -778,10 +795,12 @@ class VocTestSetupWidget(QWidget):
         self.choices_spinbox.label.setVisible(game_widget_type == ChoiceFlashcardGameWidget)
         
     def get_game_widget(self, game: FlashcardGame) -> QWidget:
+        parent = self.parent.parent
+        
         if self.game_widget_type is TextInputFlashcardGameWidget:
-            return TextInputFlashcardGameWidget(self, game)
+            return TextInputFlashcardGameWidget(parent, game)
         if self.game_widget_type is ChoiceFlashcardGameWidget:
-            return ChoiceFlashcardGameWidget(self, game, choices=self.choices_spinbox.value())
+            return ChoiceFlashcardGameWidget(parent, game, choices=self.choices_spinbox.value())
     
     def play(self):
         print(self.game_cls)
@@ -805,11 +824,12 @@ class DBGameSetupWidget(QWidget):
         self.game_setup_widget = VocTestSetupWidget(self.selected_vocs, self)
         self.layout.addWidget(self.game_setup_widget)
         
-        # Update categories, when 
+        # Update categories, when
         self.parent.keine.on_dbs_changed += self.update_categories
         self.update_categories()
         
     def update_categories(self):
+        print(self.parent.keine.dbs)
         # Find the set of all categories present in attached DBs
         categories = set()
         for db in self.parent.keine.dbs:
@@ -821,6 +841,7 @@ class DBGameSetupWidget(QWidget):
                         categories |= set(cats)
                         
         # Delete all widgets from category_select but the first two ('All' checkbox and separator)
+        self.category_checkboxes.clear()
         layout: QVBoxLayout = self.category_select.layout
         for widget in reversed([layout.itemAt(i).widget() for i in range(2, layout.count())]):
             widget.setParent(None)
@@ -832,6 +853,8 @@ class DBGameSetupWidget(QWidget):
             layout.addWidget(checkbox)
             self.category_checkboxes.append(checkbox)
             checkbox.stateChanged.connect(lambda *_: self.on_selected_categories_changed())
+            
+        self.on_selected_categories_changed()
         
     def place_category_select(self):
         self.category_select = QWidget()

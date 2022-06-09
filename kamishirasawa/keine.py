@@ -79,7 +79,4 @@ class Keine:
         for db in self.dbs:
             db.close()
         self.dbs.clear()
-        try:
-            self.on_dbs_changed()
-        except SystemError:
-            pass
+        self.on_dbs_changed()
