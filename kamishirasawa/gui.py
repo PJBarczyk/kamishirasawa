@@ -18,7 +18,7 @@ import utils
 from games import FlashcardGame, Voc, JaToEnGame, EnToJaGame
 from keine import DB, DBAlreadyAttachedError, DBParseError, Keine
 from tts import tts
-
+import csv
 
 class MetaQAbstractWidget(type(QWidget), type(ABC)):
     pass
@@ -210,12 +210,16 @@ class DBManager(QWidget):
         self.db_delete_voc.clicked.connect(self.remove_item)
         self.db_add_voc = QPushButton(text="Add new")
         self.db_add_voc.clicked.connect(self.add_item)
+        self.db_tsv_voc = QPushButton(text="Load from TSV")
+        self.db_tsv_voc.clicked.connect(self.load_tsv)
         edit_layout.addWidget(self.db_delete_voc)        
         edit_layout.addWidget(self.db_add_voc)
-        self.db_edit_widget.setDisabled(True)
+        edit_layout.addWidget(self.db_tsv_voc)
+        
+        self.db_edit_widget.setEnabled(len(self.keine.dbs) > 0)
         
         self.layout.addWidget(self.db_edit_widget)
-        
+
         self.update_db_selector()
         
     def place_db_selection_widget(self):
@@ -316,6 +320,36 @@ class DBManager(QWidget):
         self.set_voc(count, Voc("-", ["-"], ["-"]))
         self.voc_table.scrollToBottom()
         self.save_changes_widget.setEnabled(True)
+
+    def load_tsv(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Attach DB",
+            os.path.dirname(__file__),
+            "TSV files (*.tsv);;CSV files(*.csv);;All files (*.*)")
+        if path:
+            try:
+                with open(path, 'rt') as file:
+                    items = list(csv.reader(file, delimiter='\t'))
+                    self.voc_table.model().blockSignals(True)
+                    count = self.voc_table.rowCount()
+                    self.voc_table.setRowCount(count + len(items))
+                    delim = self.list_attribute_delimiters[0]
+                    for row, (word, meanings, cats) in enumerate(items):
+                        self.set_voc(row + count, Voc(
+                            word,
+                            utils.multi_split(meanings, delim),
+                            utils.multi_split(cats, delim)
+                        ))
+                    self.voc_table.model().blockSignals(False)
+                    self.voc_table.model().layoutChanged.emit()
+
+                    self.keine.dbs_lock.value = True
+                    self.save_changes_widget.setEnabled(True)
+                self.parent.statusbar.showMessage("File loaded")
+
+            except:
+                self.parent.statusbar.showMessage("Failed to load file")
 
     def on_item_selected(self, item: QTableWidgetItem):
         # print(f"Selected '{item.text()}'({item.row()}, {item.column()})")
