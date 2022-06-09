@@ -15,9 +15,13 @@ class Event:
     def __call__(self, *args, **kwargs):
         for arg in args:
             if isinstance(arg, Callable):
-                raise TypeError("Ivoked error with Callable as a parameter. Didn't you mean to use the '+=' operator?")
+                print("Ivoked error with Callable as a parameter. Didn't you mean to use the '+=' operator?")
+                break
         for callable in self.__callables:
-            callable(*args, **kwargs)
+            try:
+                callable(*args, **kwargs)
+            except RuntimeError:
+                pass
             
 class ObservableFlag:
     def __init__(self, value=None) -> None:

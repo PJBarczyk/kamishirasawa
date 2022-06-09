@@ -13,7 +13,6 @@ for font in glob("fonts/*.?tf"):
     
 app.setStyleSheet("QWidget{font-size: 12px;}")
 
-
 window = MainWindow()
 window.show()
 

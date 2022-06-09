@@ -8,6 +8,8 @@ import os
 import random
 from typing import Any, Iterable, Sequence
 
+import lang_utils
+
 @dataclass
 class Voc:
     word: str
@@ -105,15 +107,16 @@ class JaToEnGame(FlashcardGame):
     
     def _formatted_answer_of(self, flashcard: Any):
         return ", ".join(flashcard.meaning)
-
-class TupleFlashcardGame(FlashcardGame):
+    
+class EnToJaGame(FlashcardGame):
     def check_answer(self, answer: str) -> bool:
-        return answer == self._current[1]
-
+        return answer in {lang_utils.to_romaji(self._current.word), 
+                          lang_utils.to_hiragana(self._current.word), 
+                          self._current.word}
+    
     @property
     def question(self) -> str:
-        return self._current[0]
+        return ", ".join(self._current.meaning)
     
     def _formatted_answer_of(self, flashcard: Any):
-        return flashcard[1]
-        
+        return flashcard.word
