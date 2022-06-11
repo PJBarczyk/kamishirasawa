@@ -29,19 +29,22 @@ class FlashcardGame(ABC):
         assert 0 <= passes < self.passes_per_flashcard
         
         new_pos = int(max(0, len(self.active) * math.exp(passes + 1 - self.passes_per_flashcard)))
-        # print(f"Put flashcard with {passes}/{self.passes_per_flashcard} into place {new_pos}/{len(self.active)}.")
         self.active.insert(new_pos, flashcard)
     
     def mark_as_correct(self) -> None:
         self.passes_done_dict[self._current] = self.passes_done_dict[self._current] + 1
               
+        
         if (passes := self.passes_done_dict[self._current]) < self.passes_per_flashcard:
+            # The flashcard is not yet memorized, we put in back into the deck
             self.__insert_flashcard(self.active.pop(0), passes)            
         
         else:
+            # The flashcard is memorized, we throw it onto passed pile
             self.passed.append(self.active.pop(0))
             
     def mark_as_incorrect(self) -> None:
+        # As a penalty, user will have to answer one more extra time correctly
         self.passes_done_dict[self._current] = max(0, self.passes_done_dict[self._current] - 1)
         passes_done = self.passes_done_dict[self._current]
         self.__insert_flashcard(self.active.pop(0), passes_done)
@@ -61,11 +64,11 @@ class FlashcardGame(ABC):
         ...
       
     @property
-    def formatted_answer(self) -> str:
-        return self._formatted_answer_of(self._current)
+    def answer(self) -> str:
+        return self._answer_of(self._current)
         
     @abstractmethod
-    def _formatted_answer_of(self, flashcard: Any):
+    def _answer_of(self, flashcard: Any):
         ...
        
     def sample_incorrect_answers(self, k) -> list[str]:
@@ -80,20 +83,20 @@ class FlashcardGame(ABC):
             if len(sample) < k:  # Game contains less cards than set choice count
                 sample = random.choices(self.active + self.passed, k=k)
 
-        return [self._formatted_answer_of(flashcard) for flashcard in sample]
+        return [self._answer_of(flashcard) for flashcard in sample]
             
 
 class JaToEnGame(FlashcardGame):
     # A flashcard game based on vocs, where user is given a question in Japanese
     # and is required to answer in English
     def check_answer(self, answer: str) -> bool:
-        return answer.casefold() in self._current.meaning or answer == self.formatted_answer
+        return answer.casefold() in self._current.meaning or answer == self.answer
     
     @property
     def question(self) -> str:
         return self._current.word
     
-    def _formatted_answer_of(self, flashcard: Any):
+    def _answer_of(self, flashcard: Any):
         return ", ".join(flashcard.meaning)
     
 class EnToJaGame(FlashcardGame):
@@ -108,5 +111,5 @@ class EnToJaGame(FlashcardGame):
     def question(self) -> str:
         return ", ".join(self._current.meaning)
     
-    def _formatted_answer_of(self, flashcard: Any):
+    def _answer_of(self, flashcard: Any):
         return flashcard.word
