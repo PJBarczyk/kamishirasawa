@@ -1,6 +1,7 @@
-from collections import defaultdict
 import random
+from collections import defaultdict
 from typing import Dict, Tuple
+
 import pykakasi
 import romkan
 

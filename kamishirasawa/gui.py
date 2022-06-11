@@ -1,3 +1,4 @@
+import csv
 import itertools
 import os
 import random
@@ -9,16 +10,18 @@ from PyQt6.QtCore import QRunnable, Qt, QThreadPool
 from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QFileDialog,
                              QFormLayout, QFrame, QGridLayout, QHBoxLayout,
-                             QHeaderView, QLabel, QLineEdit, QMainWindow, QSizePolicy,
-                             QPushButton, QRadioButton, QSpinBox, QTableWidget,
-                             QTableWidgetItem, QVBoxLayout, QWidget)
+                             QHeaderView, QLabel, QLineEdit, QMainWindow,
+                             QPushButton, QRadioButton, QSizePolicy, QSpinBox,
+                             QTableWidget, QTableWidgetItem, QVBoxLayout,
+                             QWidget)
 
 import lang_utils
 import utils
-from games import FlashcardGame, Voc, JaToEnGame, EnToJaGame
-from keine import DB, DBAlreadyAttachedError, DBParseError, Keine
+from games import EnToJaGame, FlashcardGame, JaToEnGame, Voc
+from kamishirasawa import (DB, DBAlreadyAttachedError, DBParseError,
+                           Kamishirasawa)
 from tts import tts
-import csv
+
 
 class MetaQAbstractWidget(type(QWidget), type(ABC)):
     pass
@@ -34,15 +37,15 @@ class HSeparator(QFrame):
 class MainWindow(QMainWindow):
     def __init__(self, parent: QWidget = None, *args, **kwargs) -> None:
         super().__init__(parent, *args, **kwargs)
-        self.setWindowTitle("Keine")
+        self.setWindowTitle("Kamishirasawa")
         self.resize(400, 400)
-        self.keine = Keine()
+        self.kamishirasawa = Kamishirasawa()
         
         self.place_menubar()
         self.place_welcome_widget()
         self.statusbar = self.statusBar()
         
-        self.destroyed.connect(self.keine.close_all_dbs)
+        self.destroyed.connect(self.kamishirasawa.close_all_dbs)
         
     def place_welcome_widget(self) -> None:
         welcome_widget = QWidget(self)
@@ -70,29 +73,32 @@ class MainWindow(QMainWindow):
         
         filemenu = menubar.addMenu("File")
         
+        # Almost all actions are disabled when DB lock is engaged, to stop user
+        # from closing DB manager with unconfirmed changes
+        
         attach = filemenu.addAction("Attach DB")
         attach.setShortcut("Ctrl+Shift+A")
         attach.triggered.connect(self.attach_db_dialog)
-        self.keine.dbs_lock.add_on_write(lambda b: attach.setDisabled(b))
+        self.kamishirasawa.dbs_lock.add_on_write(lambda b: attach.setDisabled(b))
         
         create = filemenu.addAction("Create a new DB")
         create.setShortcut("Ctrl+Shift+N")
         create.triggered.connect(self.create_db_dialog)
-        self.keine.dbs_lock.add_on_write(lambda b: create.setDisabled(b))
+        self.kamishirasawa.dbs_lock.add_on_write(lambda b: create.setDisabled(b))
 
         disconnect = filemenu.addAction("Disconnect all DBs")
         disconnect.triggered.connect(self.disconnect_all_dbs)
         disconnect.setDisabled(True)
         def disconnect_disable_func(*_):
-            disconnect.setDisabled(not self.keine.dbs or self.keine.dbs_lock.value)
+            disconnect.setDisabled(not self.kamishirasawa.dbs or self.kamishirasawa.dbs_lock.value)
 
-        self.keine.on_dbs_changed += disconnect_disable_func
-        self.keine.dbs_lock.add_on_write(disconnect_disable_func)
+        self.kamishirasawa.on_dbs_changed += disconnect_disable_func
+        self.kamishirasawa.dbs_lock.add_on_write(disconnect_disable_func)
         
         filemenu.addSeparator()
         open_db_manager = filemenu.addAction("DB manager")
         open_db_manager.triggered.connect(lambda: self.replace_central_widget(DBManager(self)))
-        self.keine.dbs_lock.add_on_write(lambda b: open_db_manager.setDisabled(b))
+        self.kamishirasawa.dbs_lock.add_on_write(lambda b: open_db_manager.setDisabled(b))
         
         filemenu.addSeparator()
         quit = filemenu.addAction("Quit")
@@ -100,11 +106,9 @@ class MainWindow(QMainWindow):
         quit.setShortcut("Ctrl+Q")
 
         self.learnmenu = menubar.addMenu("Learn")
-        self.keine.dbs_lock.add_on_write(lambda b: self.learnmenu.setDisabled(b))
+        self.kamishirasawa.dbs_lock.add_on_write(lambda b: self.learnmenu.setDisabled(b))
         
         from_dbs = self.learnmenu.addAction("From DBs")
-        # from_dbs.setDisabled(True)
-        # self.keine.on_dbs_changed += (lambda: from_dbs.setDisabled(not self.keine.dbs))
         from_dbs.triggered.connect(lambda: self.replace_central_widget(DBGameSetupWidget(self)))
         
         hiragana = self.learnmenu.addAction("Hiragana")
@@ -128,7 +132,7 @@ class MainWindow(QMainWindow):
                 return
             
             try:
-                self.keine.attach_db(path)
+                self.kamishirasawa.attach_db(path)
                 self.statusbar.showMessage(f"Attached '{os.path.basename(path)}'.")
             except DBAlreadyAttachedError:
                 self.statusbar.showMessage(f"DB '{os.path.basename(path)}' is already attached.")
@@ -142,7 +146,7 @@ class MainWindow(QMainWindow):
             failed = []
             for path in paths:
                 try:
-                    self.keine.attach_db(path)
+                    self.kamishirasawa.attach_db(path)
                     successfully_attached.append(path)
                                     
                 except DBParseError:
@@ -167,14 +171,14 @@ class MainWindow(QMainWindow):
 
         if path:
             try:
-                self.keine.create_db(path)
+                self.kamishirasawa.create_db(path)
                 
             except:
                 self.statusbar.showMessage(f"Failed to create the DB.")
 
     def disconnect_all_dbs(self):
-        if self.keine.dbs:
-            self.keine.close_all_dbs()
+        if self.kamishirasawa.dbs:
+            self.kamishirasawa.close_all_dbs()
             self.statusbar.showMessage(f"Disconnected all DBs.")
         else:
             self.statusbar.showMessage(f"No DBs are attached.")
@@ -193,10 +197,10 @@ class DBManager(QWidget):
     def __init__(self, parent: QMainWindow, *args, **kwargs) -> None:
         super().__init__(parent, *args, **kwargs)
         self.parent = parent
-        self.keine = parent.keine
+        self.kamishirasawa = parent.kamishirasawa
         self.selected_db = None
-        self.keine.on_dbs_changed += self.update_db_selector
-        self.keine.on_dbs_changed += lambda: self.db_edit_widget.setEnabled(len(self.keine.dbs) > 0)
+        self.kamishirasawa.on_dbs_changed += self.update_db_selector
+        self.kamishirasawa.on_dbs_changed += lambda: self.db_edit_widget.setEnabled(len(self.kamishirasawa.dbs) > 0)
         
         self.layout = QVBoxLayout(self)
         
@@ -217,7 +221,7 @@ class DBManager(QWidget):
         edit_layout.addWidget(self.db_add_voc)
         edit_layout.addWidget(self.db_tsv_voc)
         
-        self.db_edit_widget.setEnabled(len(self.keine.dbs) > 0)
+        self.db_edit_widget.setEnabled(len(self.kamishirasawa.dbs) > 0)
         
         self.layout.addWidget(self.db_edit_widget)
 
@@ -238,7 +242,7 @@ class DBManager(QWidget):
         self.db_selection_widget.create_button.clicked.connect(self.parent.create_db_dialog)
         self.db_selection_widget.detach_button = QPushButton(icon=QIcon("./icons/detach.png"))
         self.db_selection_widget.detach_button.setFixedSize(32, 32)
-        self.db_selection_widget.detach_button.clicked.connect(lambda: self.keine.detach_db(self.db_combobox.currentData()))
+        self.db_selection_widget.detach_button.clicked.connect(lambda: self.kamishirasawa.detach_db(self.db_combobox.currentData()))
         
         self.db_selection_widget.layout.addWidget(self.db_combobox, 1)
         self.db_selection_widget.layout.addWidget(self.db_selection_widget.attach_button, 0)
@@ -246,7 +250,7 @@ class DBManager(QWidget):
         self.db_selection_widget.layout.addWidget(self.db_selection_widget.detach_button, 0)
         self.layout.addWidget(self.db_selection_widget)
         
-        self.keine.dbs_lock.add_on_write(lambda b: self.db_selection_widget.setDisabled(b))
+        self.kamishirasawa.dbs_lock.add_on_write(lambda b: self.db_selection_widget.setDisabled(b))
         
         
     def place_save_changes_widget(self):
@@ -262,7 +266,7 @@ class DBManager(QWidget):
         save_changes_layout.addWidget(self.save_changes_button)
         self.layout.addWidget(self.save_changes_widget)
         
-        self.keine.dbs_lock.add_on_write(lambda b: self.save_changes_widget.setDisabled(not b))
+        self.kamishirasawa.dbs_lock.add_on_write(lambda b: self.save_changes_widget.setDisabled(not b))
         self.save_changes_widget.setDisabled(True)
         
     def place_table(self):
@@ -279,7 +283,7 @@ class DBManager(QWidget):
         
         selection_layout = self.db_selection_widget.layout
         
-        match list(self.keine.dbs):
+        match list(self.kamishirasawa.dbs):
             case []:
                 for child in (selection_layout.itemAt(i).widget() for i in range(selection_layout.count())):
                     child.setDisabled(child not in {self.db_selection_widget.attach_button, self.db_selection_widget.create_button})
@@ -309,13 +313,13 @@ class DBManager(QWidget):
     def remove_item(self):
         rows = list({x.row() for x in self.voc_table.selectedIndexes()})
         if rows:
-            self.keine.dbs_lock.value = True
+            self.kamishirasawa.dbs_lock.value = True
             for row in reversed(rows):
                 self.voc_table.removeRow(row)
             self.save_changes_widget.setEnabled(True)
 
     def add_item(self):
-        self.keine.dbs_lock.value = True
+        self.kamishirasawa.dbs_lock.value = True
         count = self.voc_table.rowCount()
         self.voc_table.setRowCount(count + 1)
         self.set_voc(count, Voc("-", ["-"], []))
@@ -345,7 +349,7 @@ class DBManager(QWidget):
                     self.voc_table.model().blockSignals(False)
                     self.voc_table.model().layoutChanged.emit()
 
-                    self.keine.dbs_lock.value = True
+                    self.kamishirasawa.dbs_lock.value = True
                     self.save_changes_widget.setEnabled(True)
                 self.parent.statusbar.showMessage("File loaded")
 
@@ -379,7 +383,7 @@ class DBManager(QWidget):
 
             item.setText(text)
             item.setData(Qt.ItemDataRole.UserRole, data)
-            self.keine.dbs_lock.value = True
+            self.kamishirasawa.dbs_lock.value = True
             
         except ValueError as e:
             self.parent.statusbar.showMessage(". ".join(e.args))
@@ -421,7 +425,7 @@ class DBManager(QWidget):
         self.voc_table.model().layoutChanged.emit()
         
     def save_changes(self):
-        assert self.keine.dbs_lock
+        assert self.kamishirasawa.dbs_lock
         
         vocs = []
         for row in range(self.voc_table.rowCount()):
@@ -431,13 +435,13 @@ class DBManager(QWidget):
         self.selected_db.clear_and_write_data(vocs)
         
         self.redraw_voc_table()
-        self.keine.dbs_lock.value = False
+        self.kamishirasawa.dbs_lock.value = False
         
     def revert_changes(self):
-        assert self.keine.dbs_lock
+        assert self.kamishirasawa.dbs_lock
         
         self.redraw_voc_table()
-        self.keine.dbs_lock.value = False
+        self.kamishirasawa.dbs_lock.value = False
 
 
 class KanjiKanaLabel(QWidget):
@@ -683,11 +687,12 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
             button.setText(self.format_inline_text(button.answer))
         
     def create_input_widget(self) -> QWidget:
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
+        input_widget = QWidget(self)
+        input_widget.layout = QVBoxLayout(input_widget)
+        self.layout.addWidget(input_widget)
         
         self.feedback_label = QLabel()
-        layout.addWidget(self.feedback_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        input_widget.layout.addWidget(self.feedback_label, alignment=Qt.AlignmentFlag.AlignCenter)
         
         self.answer_buttons = [QPushButton() for _ in range(self.choices)]
         self.answer_button_actions = []
@@ -701,7 +706,7 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
         
         keys_iter = iter([str(n) for n in [*range(1, 10)] + [0]])
         for button in self.answer_buttons:
-            layout.addWidget(button, alignment=Qt.AlignmentFlag.AlignCenter)
+            input_widget.layout.addWidget(button, alignment=Qt.AlignmentFlag.AlignCenter)
             
             try:
                 action = QAction()
@@ -716,7 +721,7 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
             
         self.set_choices()
         
-        return widget
+        return input_widget
         
     def set_choices(self) -> None:
         # Create a list containg one correct answer with the rest being incorrect
@@ -881,13 +886,13 @@ class DBGameSetupWidget(QWidget):
         self.layout.addWidget(self.game_setup_widget)
         
         # Update categories, when
-        self.parent.keine.on_dbs_changed += self.update_categories
+        self.parent.kamishirasawa.on_dbs_changed += self.update_categories
         self.update_categories()
         
     def update_categories(self):
         # Find the set of all categories present in attached DBs
         categories = set()
-        for db in self.parent.keine.dbs:
+        for db in self.parent.kamishirasawa.dbs:
             for voc in db.read_data():
                 match voc.categories:
                     case []:
@@ -940,7 +945,7 @@ class DBGameSetupWidget(QWidget):
         
         # Fill selected_vocs with Vocs from attached DBs belonging to at least one of the selected categories
         self.selected_vocs.clear()
-        for db in self.parent.keine.dbs:
+        for db in self.parent.kamishirasawa.dbs:
             for voc in db.read_data():
                 match voc.categories:
                     case [] if self.NO_CATEGORIES in selected_categories:

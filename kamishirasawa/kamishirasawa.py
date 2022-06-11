@@ -1,9 +1,31 @@
 import json
 import os
+from dataclasses import dataclass
 from typing import Iterable
 
-from games import Voc
 from utils import Event, ObservableFlag
+
+
+@dataclass
+class Voc:
+    # A voc is a piece of vocabulary, described as a word in Japanese
+    # combined with a list of meaning and assigned to none, one or more categories
+    
+    word: str
+    meaning: list[str]
+    categories: list[str]
+    
+    def __post_init__(self):
+        self.meaning = list({s.casefold().strip() for s in self.meaning})
+        self.categories = list({s.upper().strip() for s in self.categories})
+    
+    @classmethod
+    def get_from_json(cls, path: str) -> list:        
+        with open(path, "r") as file:
+            return json.load(file, object_hook=lambda kwargs: cls(**kwargs))
+        
+    def __hash__(self) -> int:
+        return hash(self.word)
 
 
 class DBParseError(Exception):
@@ -39,7 +61,7 @@ class DB:
         self.file.close()
         
 
-class Keine:
+class Kamishirasawa:
     def __init__(self) -> None:
         self.dbs: set[Voc] = set()
         

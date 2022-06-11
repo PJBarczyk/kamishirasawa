@@ -1,35 +1,11 @@
+import math
+import random
 from abc import ABC, abstractmethod, abstractproperty
 from collections import defaultdict
-from copy import copy
-from dataclasses import dataclass
-import json
-import math
-import os
-import random
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable
 
 import lang_utils
-
-@dataclass
-class Voc:
-    # A voc is a piece of vocabulary, described as a word in Japanese
-    # combined with a list of meaning and assigned to none, one or more categories
-    
-    word: str
-    meaning: list[str]
-    categories: list[str]
-    
-    def __post_init__(self):
-        self.meaning = list({s.casefold().strip() for s in self.meaning})
-        self.categories = list({s.upper().strip() for s in self.categories})
-    
-    @classmethod
-    def get_from_json(cls, path: str) -> list:        
-        with open(path, "r") as file:
-            return json.load(file, object_hook=lambda kwargs: cls(**kwargs))
-        
-    def __hash__(self) -> int:
-        return hash(self.word)
+from kamishirasawa import Voc
 
 
 class FlashcardGame(ABC):    
@@ -53,7 +29,7 @@ class FlashcardGame(ABC):
         assert 0 <= passes < self.passes_per_flashcard
         
         new_pos = int(max(0, len(self.active) * math.exp(passes + 1 - self.passes_per_flashcard)))
-        print(f"Put flashcard with {passes}/{self.passes_per_flashcard} into place {new_pos}/{len(self.active)}.")
+        # print(f"Put flashcard with {passes}/{self.passes_per_flashcard} into place {new_pos}/{len(self.active)}.")
         self.active.insert(new_pos, flashcard)
     
     def mark_as_correct(self) -> None:
@@ -67,7 +43,8 @@ class FlashcardGame(ABC):
             
     def mark_as_incorrect(self) -> None:
         self.passes_done_dict[self._current] = max(0, self.passes_done_dict[self._current] - 1)
-        self.__insert_flashcard(self.active.pop(0), self.passes_done_dict[self._current])   
+        passes_done = self.passes_done_dict[self._current]
+        self.__insert_flashcard(self.active.pop(0), passes_done)
         
     
     @property
