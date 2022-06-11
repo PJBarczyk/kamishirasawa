@@ -184,6 +184,7 @@ class MainWindow(QMainWindow):
             self.statusbar.showMessage(f"No DBs are attached.")
 
     def replace_central_widget(self, widget: QWidget) -> None:
+        """ Detaches the central widget (workspace) and replaces it with a new one, given in parameter """
         try:
             self.centralWidget().deleteLater()
             self.centralWidget().setParent(None)
@@ -361,9 +362,9 @@ class DBManager(QWidget):
         self.last_selected_text = item.text()
                 
     def on_item_changed(self, item: QTableWidgetItem):
-        # Checks if changed field is still valid, formats the cell if needed
-        # If check fails, the change is reverted.
-        # If the check passes, the DBs lock is engaged, and changes have to be reverted or confirmed
+        """Checks if changed field is still valid, formats the cell if needed
+        If check fails, the change is reverted.
+        If the check passes, the DBs lock is engaged, and changes have to be reverted or confirmed"""
         text = item.text().strip()
       
         self.voc_table.blockSignals(True)
@@ -428,7 +429,7 @@ class DBManager(QWidget):
         self.voc_table.model().layoutChanged.emit()
         
     def save_changes(self):
-        # Serialize vocs present in the manager to the selected DB, overwriting the data
+        """Serialize vocs present in the manager to the selected DB, overwriting the data"""
         assert self.kamishirasawa.dbs_lock
         
         vocs = []
@@ -442,7 +443,7 @@ class DBManager(QWidget):
         self.kamishirasawa.dbs_lock.value = False
         
     def revert_changes(self):
-        # Cancell all the changes, redrawing the table
+        """Cancell all the changes, redrawing the table"""
         assert self.kamishirasawa.dbs_lock
         
         self.redraw_voc_table()
@@ -450,8 +451,8 @@ class DBManager(QWidget):
 
 
 class KanjiKanaLabel(QWidget):
-    # KanjiKanaLabel is a widget with a label-like interface
-    # intended for displaying Japanese script in various modes,  determined by display "Mode".
+    """KanjiKanaLabel is a widget with a label-like interface
+    intended for displaying Japanese script in various modes,  determined by display "Mode"."""
     
     class Mode(Enum):
         ORIGINAL = auto() # original kanji/kana/latin text
@@ -533,6 +534,10 @@ class TTSButton(QPushButton):
     
 
 class FlashcardGameWidget(QAbstractWidget):
+    """Abstract widget supplying a graphical interface for playing FlashcardGame instances.
+    Contains question label in from of KanjiKanaLabel and DisplayMode settings buttons but does not implement
+    a way to input answers."""
+    
     class State(Enum):
         READING_ANSWER = auto()
         GIVING_FEEDBACK = auto()
@@ -596,6 +601,7 @@ class FlashcardGameWidget(QAbstractWidget):
         self.layout.addWidget(self.create_input_widget(), alignment=Qt.AlignmentFlag.AlignCenter)
         
     def format_inline_text(self, text):
+        """Formats inline text in a simmilar way as KanjiKanaLabel, but as a single str, without rich text support."""
         match self.display_mode:
             case self.DisplayMode.ORIGINAL:
                 return text
@@ -628,6 +634,8 @@ class FlashcardGameWidget(QAbstractWidget):
         self.parent.replace_central_widget(label)
     
 class TextInputFlashcardGameWidget(FlashcardGameWidget):
+    """FlashcardGameWidget implementation in which user types in the answer via keyboard."""    
+    
     def create_input_widget(self) -> QWidget:
         input_widget = QWidget()
         
@@ -684,6 +692,8 @@ class TextInputFlashcardGameWidget(FlashcardGameWidget):
                 self.on_new_question()
                   
 class ChoiceFlashcardGameWidget(FlashcardGameWidget):
+    """FlashcardGameWidget implementation in which user selects the answer from several generated options.""" 
+    
     def __init__(self, parent: QWidget, game: FlashcardGame, choices: int, *args, **kwargs) -> None:
         assert choices >= 2
         self.choices = choices
@@ -777,6 +787,9 @@ class ChoiceFlashcardGameWidget(FlashcardGameWidget):
                 self.on_new_question()
 
 class VocTestSetupWidget(QWidget):
+    """A subwidget (not made to be a central widget) supplying a form in which user can configure the flashcard game.
+    The widget relies on a voc source, that has to be supplied by another, presumably parent, widget."""
+    
     def __init__(self, vocs: typing.Iterable, parent: QWidget, *args, **kwargs) -> None:
         super().__init__(parent=parent, *args, **kwargs)
         self.parent = parent
@@ -876,6 +889,7 @@ class VocTestSetupWidget(QWidget):
         self.main_window.replace_central_widget(game_widget)
 
 class DBGameSetupWidget(QWidget):
+    """FlashcardGame setup widget where user selects the vocs based os chosen categories from attached DBs."""
     
     NO_CATEGORIES = "Non categorised"
     ALL_CATEGORIES = "All"
@@ -973,6 +987,7 @@ class DBGameSetupWidget(QWidget):
         self.game_setup_widget.update()
                           
 class HiraganaTestSetupWidget(QWidget):
+    """FlashcardGame setup widget where voc of hiragana syllables are generated based on user selection in vowel-consonant matrix."""
     
     @property
     def minor_checkboxes(self): # all checkboxes but the 'All' chkeckbox

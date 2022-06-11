@@ -1,7 +1,7 @@
 import json
 import os
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Set
 
 from utils import Event, ObservableFlag
 
@@ -62,8 +62,9 @@ class DB:
         
 
 class Kamishirasawa:
+    """A main runtime object handling DB operations"""
     def __init__(self) -> None:
-        self.dbs: set[Voc] = set()
+        self.dbs: Set[DB] = set()
         
         self.on_dbs_changed = Event()
         

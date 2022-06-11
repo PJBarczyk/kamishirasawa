@@ -1,6 +1,6 @@
 import random
 from collections import defaultdict
-from typing import Dict, Tuple
+from typing import Dict, Iterable, Tuple
 
 import pykakasi
 import romkan
@@ -25,7 +25,9 @@ def contains_kanji(text: str):
     converted = convert_concat(text)
     return text not in {converted["hira"], converted["kana"]}
 
-def furigana(text: str) -> Tuple[str, str]:
+def furigana(text: str) -> Iterable[Tuple[str, str]]:
+    """Returns an iterable of tuples (kanji sequence, hiragana spelling) or (kana/latin, None)"""
+    
     tuples = []
     
     for d in convert(text):
@@ -48,6 +50,7 @@ def furigana(text: str) -> Tuple[str, str]:
 class kaomoji:
     @staticmethod
     def joy():
+        """Random joyful kaomoji."""
         return random.choice([
             "＼(≧▽≦)／",
             "☆*:.｡.o(≧▽≦)o.｡.:*☆",

@@ -24,7 +24,6 @@ class Event:
                 pass
             
 class ObservableFlag:
-    # An event of sorts, 
     def __init__(self, value=None) -> None:
         self.__value = value
         self.__on_write_callables = set[Callable[[bool], Any]]()
@@ -56,6 +55,7 @@ class ObservableFlag:
     
     
 def multi_split(s: str, seps: Iterable[str]):
+    """Splits string by given separators."""
     list_of_splits = [s]
     for sep in seps:
         list_of_splits = [s for ss in list_of_splits for s in ss.split(sep)]

@@ -72,7 +72,7 @@ class FlashcardGame(ABC):
         ...
        
     def sample_incorrect_answers(self, k) -> list[str]:
-        # Returns a list of formatted, incorrect answers
+        """Returns a list of formatted, incorrect answers."""
         # First, will pick from active, then from passed
         sample = random.sample(self.active[1:], min(len(self.active) - 1, k))
         
@@ -87,8 +87,8 @@ class FlashcardGame(ABC):
             
 
 class JaToEnGame(FlashcardGame):
-    # A flashcard game based on vocs, where user is given a question in Japanese
-    # and is required to answer in English
+    """A flashcard game based on vocs, where user is given a question in Japanese
+    and is required to answer in English"""
     def check_answer(self, answer: str) -> bool:
         return answer.casefold() in self._current.meaning or answer == self.answer
     
@@ -100,8 +100,8 @@ class JaToEnGame(FlashcardGame):
         return ", ".join(flashcard.meaning)
     
 class EnToJaGame(FlashcardGame):
-    # A flashcard game based on vocs, where user is given a question in English
-    # and is required to answer in Japanese
+    """A flashcard game based on vocs, where user is given a question in English
+    and is required to answer in Japanese."""
     def check_answer(self, answer: str) -> bool:
         return answer in {lang_utils.to_romaji(self._current.word), 
                           lang_utils.to_hiragana(self._current.word), 
