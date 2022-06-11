@@ -361,6 +361,9 @@ class DBManager(QWidget):
         self.last_selected_text = item.text()
                 
     def on_item_changed(self, item: QTableWidgetItem):
+        # Checks if changed field is still valid, formats the cell if needed
+        # If check fails, the change is reverted.
+        # If the check passes, the DBs lock is engaged, and changes have to be reverted or confirmed
         text = item.text().strip()
       
         self.voc_table.blockSignals(True)
@@ -410,7 +413,7 @@ class DBManager(QWidget):
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         
-        
+        # Populate the table with vocs from selected in combobox DB
         if self.selected_db:
             vocs = self.selected_db.read_data()
             
@@ -425,6 +428,7 @@ class DBManager(QWidget):
         self.voc_table.model().layoutChanged.emit()
         
     def save_changes(self):
+        # Serialize vocs present in the manager to the selected DB, overwriting the data
         assert self.kamishirasawa.dbs_lock
         
         vocs = []
@@ -438,6 +442,7 @@ class DBManager(QWidget):
         self.kamishirasawa.dbs_lock.value = False
         
     def revert_changes(self):
+        # Cancell all the changes, redrawing the table
         assert self.kamishirasawa.dbs_lock
         
         self.redraw_voc_table()
@@ -445,10 +450,13 @@ class DBManager(QWidget):
 
 
 class KanjiKanaLabel(QWidget):
+    # KanjiKanaLabel is a widget with a label-like interface
+    # intended for displaying Japanese script in various modes,  determined by display "Mode".
+    
     class Mode(Enum):
-        ORIGINAL = auto()
-        FURIGANA = auto()
-        ROMAJI = auto()
+        ORIGINAL = auto() # original kanji/kana/latin text
+        FURIGANA = auto() # if text contains kanji, it is annotated with ruby characters written in hiragana
+        ROMAJI = auto() # text is converted to romaji, latin-based phonetic script
         
     base_font_size = 20
     furigana_font_size = 20
